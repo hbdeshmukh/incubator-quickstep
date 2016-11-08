@@ -36,7 +36,7 @@ add_library(quickstep_queryexecution_ExecutionStats ../empty_src.cpp ExecutionSt
 add_library(quickstep_queryexecution_Foreman Foreman.cpp Foreman.hpp)
 add_library(quickstep_queryexecution_ForemanLite ../empty_src.cpp ForemanLite.hpp)
 add_library(quickstep_queryexecution_Learner Learner.cpp Learner.hpp)
-add_library(quickstep_queryexecution_PolicyEnforcer PolicyEnforcer.cpp PolicyEnforcer.hpp)
+add_library(quickstep_queryexecution_PolicyEnforcerSingleNode PolicyEnforcerSingleNode.cpp PolicyEnforcerSingleNode.hpp)
 add_library(quickstep_queryexecution_PriorityPolicyEnforcer PriorityPolicyEnforcer.cpp PriorityPolicyEnforcer.hpp)
 add_library(quickstep_queryexecution_ProbabilityStore ../empty_src.cpp ProbabilityStore.hpp)
 add_library(quickstep_queryexecution_QueryContext QueryContext.cpp QueryContext.hpp)
@@ -105,7 +105,7 @@ target_link_libraries(quickstep_queryexecution_Learner
                       quickstep_queryexecution_QueryExecutionTypedefs
                       quickstep_queryoptimizer_QueryHandle
                       quickstep_utility_Macros)
-target_link_libraries(quickstep_queryexecution_PolicyEnforcer
+target_link_libraries(quickstep_queryexecution_PolicyEnforcerSingleNode
                       ${GFLAGS_LIB_NAME}
                       glog
                       quickstep_catalog_CatalogTypedefs
@@ -239,7 +239,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_Foreman
                       quickstep_queryexecution_ForemanLite
                       quickstep_queryexecution_Learner
-                      quickstep_queryexecution_PolicyEnforcer
+                      quickstep_queryexecution_PolicyEnforcerSingleNode
                       quickstep_queryexecution_PriorityPolicyEnforcer
                       quickstep_queryexecution_ProbabilityStore
                       quickstep_queryexecution_QueryContext

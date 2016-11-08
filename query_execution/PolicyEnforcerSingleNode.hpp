@@ -15,8 +15,8 @@
  *   limitations under the License.
  **/
 
-#ifndef QUICKSTEP_QUERY_EXECUTION_POLICY_ENFORCER_HPP_
-#define QUICKSTEP_QUERY_EXECUTION_POLICY_ENFORCER_HPP_
+#ifndef QUICKSTEP_QUERY_EXECUTION_POLICY_ENFORCER_SINGLE_NODE_HPP_
+#define QUICKSTEP_QUERY_EXECUTION_POLICY_ENFORCER_SINGLE_NODE_HPP_
 
 #include <cstddef>
 #include <memory>
@@ -47,7 +47,7 @@ class WorkerDirectory;
  * @brief A class that ensures that a high level policy is maintained
  *        in sharing resources among concurrent queries.
  **/
-class PolicyEnforcer {
+class PolicyEnforcerSingleNode {
  public:
   /**
    * @brief Constructor.
@@ -58,7 +58,7 @@ class PolicyEnforcer {
    * @param storage_manager The StorageManager used.
    * @param bus The TMB.
    **/
-  PolicyEnforcer(const tmb::client_id foreman_client_id,
+  PolicyEnforcerSingleNode(const tmb::client_id foreman_client_id,
                  const std::size_t num_numa_nodes,
                  CatalogDatabaseLite *catalog_database,
                  StorageManager *storage_manager,
@@ -76,9 +76,9 @@ class PolicyEnforcer {
   /**
    * @brief Destructor.
    **/
-  ~PolicyEnforcer() {
+  ~PolicyEnforcerSingleNode() {
     if (hasQueries()) {
-      LOG(WARNING) << "Destructing PolicyEnforcer with some unfinished or "
+      LOG(WARNING) << "Destructing PolicyEnforcerSingleNode with some unfinished or "
                       "waiting queries";
     }
   }
@@ -207,11 +207,11 @@ class PolicyEnforcer {
       std::vector<std::tuple<std::size_t, std::size_t, std::size_t>>>
       workorder_time_recorder_;
 
-  DISALLOW_COPY_AND_ASSIGN(PolicyEnforcer);
+  DISALLOW_COPY_AND_ASSIGN(PolicyEnforcerSingleNode);
 };
 
 /** @} */
 
 }  // namespace quickstep
 
-#endif  // QUICKSTEP_QUERY_EXECUTION_POLICY_ENFORCER_HPP_
+#endif  // QUICKSTEP_QUERY_EXECUTION_POLICY_ENFORCER_SINGLE_NODE_HPP_

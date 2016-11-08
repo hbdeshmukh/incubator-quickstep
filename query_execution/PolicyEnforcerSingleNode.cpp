@@ -15,7 +15,7 @@
  *   limitations under the License.
  **/
 
-#include "query_execution/PolicyEnforcer.hpp"
+#include "query_execution/PolicyEnforcerSingleNode.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -41,7 +41,7 @@ DEFINE_uint64(max_msgs_per_dispatch_round, 20, "Maximum number of messages that"
               " can be allocated in a single round of dispatch of messages to"
               " the workers.");
 
-bool PolicyEnforcer::admitQuery(QueryHandle *query_handle) {
+bool PolicyEnforcerSingleNode::admitQuery(QueryHandle *query_handle) {
   if (admitted_queries_.size() < kMaxConcurrentQueries) {
     // Ok to admit the query.
     const std::size_t query_id = query_handle->query_id();
@@ -62,7 +62,7 @@ bool PolicyEnforcer::admitQuery(QueryHandle *query_handle) {
   }
 }
 
-void PolicyEnforcer::processMessage(const TaggedMessage &tagged_message) {
+void PolicyEnforcerSingleNode::processMessage(const TaggedMessage &tagged_message) {
   // TODO(harshad) : Provide processXMessage() public functions in
   // QueryManager, so that we need to extract message from the
   // TaggedMessage only once.
@@ -122,7 +122,7 @@ void PolicyEnforcer::processMessage(const TaggedMessage &tagged_message) {
       break;
     }
     default:
-      LOG(FATAL) << "Unknown message type found in PolicyEnforcer";
+      LOG(FATAL) << "Unknown message type found in PolicyEnforcerSingleNode";
   }
   DCHECK(admitted_queries_.find(query_id) != admitted_queries_.end());
   const QueryManager::QueryStatusCode return_code =
@@ -138,7 +138,7 @@ void PolicyEnforcer::processMessage(const TaggedMessage &tagged_message) {
   }
 }
 
-void PolicyEnforcer::getWorkerMessages(
+void PolicyEnforcerSingleNode::getWorkerMessages(
     std::vector<std::unique_ptr<WorkerMessage>> *worker_messages) {
   // Iterate over admitted queries until either there are no more
   // messages available, or the maximum number of messages have
@@ -182,7 +182,7 @@ void PolicyEnforcer::getWorkerMessages(
   }
 }
 
-void PolicyEnforcer::removeQuery(const std::size_t query_id) {
+void PolicyEnforcerSingleNode::removeQuery(const std::size_t query_id) {
   DCHECK(admitted_queries_.find(query_id) != admitted_queries_.end());
   if (!admitted_queries_[query_id]->getQueryExecutionState().hasQueryExecutionFinished()) {
     LOG(WARNING) << "Removing query with ID " << query_id
@@ -191,7 +191,7 @@ void PolicyEnforcer::removeQuery(const std::size_t query_id) {
   admitted_queries_.erase(query_id);
 }
 
-bool PolicyEnforcer::admitQueries(
+bool PolicyEnforcerSingleNode::admitQueries(
     const std::vector<QueryHandle*> &query_handles) {
   for (QueryHandle *curr_query : query_handles) {
     if (!admitQuery(curr_query)) {
@@ -201,7 +201,7 @@ bool PolicyEnforcer::admitQueries(
   return true;
 }
 
-void PolicyEnforcer::recordTimeForWorkOrder(
+void PolicyEnforcerSingleNode::recordTimeForWorkOrder(
     const serialization::NormalWorkOrderCompletionMessage &proto) {
   const std::size_t query_id = proto.query_id();
   if (workorder_time_recorder_.find(query_id) == workorder_time_recorder_.end()) {
