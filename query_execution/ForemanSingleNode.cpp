@@ -19,6 +19,7 @@
 
 #include "query_execution/ForemanSingleNode.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <memory>
@@ -125,10 +126,23 @@ void ForemanSingleNode::run() {
         policy_enforcer_->processMessage(tagged_message);
         ++progress_counter_;
         if (progress_counter_ == 1000) {
-            const auto &profiling_stats =
-                getWorkOrderProfilingResults(current_query_id_);
-            dag_visualizer_->bindProfilingStats(profiling_stats);
-          std::cerr << "\n" << dag_visualizer_->toDOT() << "\n";
+          const auto &profiling_stats =
+              getWorkOrderProfilingResults(current_query_id_);
+          std::vector<bool> all_operator_status = policy_enforcer_->checkAllOperatorsStatus(current_query_id_);
+          if (!all_operator_status.empty()) {
+            const std::size_t num_operators_finished = std::count(all_operator_status.begin(), all_operator_status.end(), true);
+            if (num_operators_finished == all_operator_status.size()) {
+              // Query has finished execution.
+              std::cout << "Query finished its execution\n";
+              dag_visualizer_->bindProfilingStats(profiling_stats);
+              std::cerr << "\n" << dag_visualizer_->toDOT() << "\n";
+            } else {
+              // Query is still under execution.
+              std::cout << "Query still under execution\n";
+              dag_visualizer_->bindProfilingStatsForRunningQuery(profiling_stats, all_operator_status);
+              std::cerr << "\n" << dag_visualizer_->toDOT() << "\n";
+            }
+          }
         }
         break;
       }

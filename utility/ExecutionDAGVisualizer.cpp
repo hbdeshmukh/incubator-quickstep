@@ -223,6 +223,85 @@ std::string ExecutionDAGVisualizer::toDOT() {
   return graph_oss.str();
 }
 
+void ExecutionDAGVisualizer::bindProfilingStatsForRunningQuery(
+    const std::vector<WorkOrderTimeEntry> &execution_time_records,
+    const std::vector<bool> &operators_completion_status) {
+  std::vector<std::size_t> time_start(num_nodes_, std::numeric_limits<std::size_t>::max());
+  std::vector<std::size_t> time_end(num_nodes_, 0);
+  std::vector<std::size_t> time_elapsed(num_nodes_, 0);
+  std::size_t overall_start_time = std::numeric_limits<std::size_t>::max();
+  std::size_t overall_end_time = 0;
+  for (const auto &entry : execution_time_records) {
+    const std::size_t relop_index = entry.operator_id;
+    DCHECK_LT(relop_index, num_nodes_);
+
+    const std::size_t workorder_start_time = entry.start_time;
+    const std::size_t workorder_end_time = entry.end_time;
+    overall_start_time = std::min(overall_start_time, workorder_start_time);
+    overall_end_time = std::max(overall_end_time, workorder_end_time);
+
+    time_start[relop_index] =
+        std::min(time_start[relop_index], workorder_start_time);
+    time_end[relop_index] =
+        std::max(time_end[relop_index], workorder_end_time);
+    time_elapsed[relop_index] += (workorder_end_time - workorder_start_time);
+  }
+
+  double total_time_elapsed = 0;
+  for (std::size_t i = 0; i < time_elapsed.size(); ++i) {
+    total_time_elapsed += time_elapsed[i];
+  }
+  std::vector<double> time_percentage(num_nodes_, 0);
+  std::vector<double> span_percentage(num_nodes_, 0);
+  double overall_span = overall_end_time - overall_start_time;
+  double max_percentage = 0;
+  for (std::size_t i = 0; i < time_elapsed.size(); ++i) {
+    time_percentage[i] = time_elapsed[i] / total_time_elapsed * 100;
+    span_percentage[i] = (time_end[i] - time_start[i]) / overall_span * 100;
+    max_percentage = std::max(max_percentage, time_percentage[i] + span_percentage[i]);
+  }
+
+  for (std::size_t node_index = 0; node_index < num_nodes_; ++node_index) {
+    if (nodes_.find(node_index) != nodes_.end()) {
+      const std::size_t relop_start_time = time_start[node_index];
+      const std::size_t relop_end_time = time_end[node_index];
+      const std::size_t relop_elapsed_time = time_elapsed[node_index];
+      NodeInfo &node_info = nodes_[node_index];
+
+      const double hue =
+          (time_percentage[node_index] + span_percentage[node_index]) / max_percentage;
+      node_info.color = std::to_string(hue) + " " + std::to_string(hue) + " 1.0";
+
+      if (overall_start_time == 0) {
+        node_info.labels.emplace_back(
+            "span: " +
+            std::to_string((relop_end_time - relop_start_time) / 1000) + "ms");
+      } else {
+        node_info.labels.emplace_back(
+            "span: [" +
+            std::to_string((relop_start_time - overall_start_time) / 1000) + "ms, " +
+            std::to_string((relop_end_time - overall_start_time) / 1000) + "ms] (" +
+            FormatDigits(span_percentage[node_index], 2) + "%)");
+      }
+
+      node_info.labels.emplace_back(
+          "total: " +
+          std::to_string(relop_elapsed_time / 1000) + "ms (" +
+          FormatDigits(time_percentage[node_index], 2) + "%)");
+
+      const double concurrency =
+          static_cast<double>(relop_elapsed_time) / (relop_end_time - relop_start_time);
+      node_info.labels.emplace_back(
+          "effective concurrency: " + FormatDigits(concurrency, 2));
+      if (operators_completion_status[node_index]) {
+        node_info.labels.emplace_back("Completed");
+      } else {
+        node_info.labels.emplace_back("Not completed");
+      }
+    }
+  }
+}
+
 std::string ExecutionDAGVisualizer::FormatDigits(const double value,
                                                  const int num_digits) {
   std::ostringstream oss;

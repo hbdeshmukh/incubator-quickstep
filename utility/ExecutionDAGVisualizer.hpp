@@ -58,7 +58,8 @@ class ExecutionDAGVisualizer {
 
   /**
    * @brief Summarize the execution timing stats and bind the stats to the
-   *        corresponding relational operators in the execution plan.
+   *        corresponding relational operators in the execution plan. This
+   *        method is relevant for queries that have finished execution.
    *
    * @param execution_time_records The profiled timing records of execution.
    */
@@ -72,6 +73,19 @@ class ExecutionDAGVisualizer {
    * @return The execution plan graph in DOT format.
    */
   std::string toDOT();
+
+  /**
+   * @brief Summarize the execution timing stats and bind the stats to the
+   *        corresponding relational operators in the execution plan. This
+   *        method is relevant for queries that are under execution.
+   *
+   * @param execution_time_records The profiled timing records of execution.
+   * @param operators_completion_status The status of each operator in the query
+   *        about whether it has finished its execution or not.
+   */
+  void bindProfilingStatsForRunningQuery(
+      const std::vector<WorkOrderTimeEntry> &execution_time_records,
+      const std::vector<bool> &operators_completion_status);
 
  private:
   /**

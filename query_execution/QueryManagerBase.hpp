@@ -145,7 +145,7 @@ class QueryManagerBase {
    *
    * @return QueryStatusCode as determined after the message is processed.
    **/
-  QueryStatusCode queryStatus(const dag_node_index op_index);
+  QueryStatusCode queryStatus(const dag_node_index op_index) const;
 
  protected:
   /**

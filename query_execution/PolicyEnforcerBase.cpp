@@ -32,6 +32,7 @@
 #include "query_execution/QueryExecutionState.hpp"
 #include "query_execution/QueryExecutionTypedefs.hpp"
 #include "query_execution/QueryManagerBase.hpp"
+#include "query_optimizer/QueryHandle.hpp"
 #include "relational_operators/WorkOrder.hpp"
 #include "storage/StorageBlockInfo.hpp"
 
@@ -167,6 +168,29 @@ void PolicyEnforcerBase::recordTimeForWorkOrder(
   entry.operator_id = proto.operator_index(),
   entry.start_time = proto.execution_start_time(),
   entry.end_time = proto.execution_end_time();
+}
+
+std::vector<bool> PolicyEnforcerBase::checkAllOperatorsStatus(
+    const std::size_t query_id) const {
+  std::vector<bool> result;
+  if (existQuery(query_id)) {
+    const QueryManagerBase *query_manager = admitted_queries_.at(query_id).get();
+    DCHECK(query_manager != nullptr);
+    const QueryHandle *query_handle = query_manager->query_handle();
+    DCHECK(query_handle != nullptr);
+    const std::size_t num_operators = query_handle->getNumOperators();
+    result.reserve(num_operators);
+    for (QueryManagerBase::dag_node_index curr_op = 0; curr_op < num_operators; ++curr_op) {
+      QueryManagerBase::QueryStatusCode op_code = query_manager->queryStatus(curr_op);
+      if (op_code == QueryManagerBase::QueryStatusCode::kOperatorExecuted ||
+          op_code == QueryManagerBase::QueryStatusCode::kQueryExecuted) {
+        result.emplace_back(true);
+      } else {
+        result.emplace_back(false);
+      }
+    }
+  }
+  return result;
 }
 
 }  // namespace quickstep

@@ -93,6 +93,13 @@ class QueryHandle {
   }
 
   /**
+   * @return The number of operators in the query.
+   **/
+  const std::size_t getNumOperators() const {
+    return query_plan_->getQueryPlanDAG().size();
+  }
+
+  /**
    * @return The query context in the protobuf format.
    */
   const serialization::QueryContext& getQueryContextProto() const {

@@ -134,6 +134,7 @@ target_link_libraries(quickstep_queryexecution_PolicyEnforcerBase
                       quickstep_queryexecution_QueryExecutionState
                       quickstep_queryexecution_QueryExecutionTypedefs
                       quickstep_queryexecution_QueryManagerBase
+                      quickstep_queryoptimizer_QueryHandle
                       quickstep_relationaloperators_WorkOrder
                       quickstep_storage_StorageBlockInfo
                       quickstep_utility_Macros

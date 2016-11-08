@@ -146,6 +146,16 @@ class PolicyEnforcerBase {
     return workorder_time_recorder_.at(query_id);
   }
 
+  /**
+   * @brief Check the status of all the operators for a given query.
+   *
+   * @param query_id The ID of the given query.
+   *
+   * @return A vector of boolean. The boolean at index i indicates whether the
+   *         operator with ID=i has finished its execution or not.
+   **/
+  std::vector<bool> checkAllOperatorsStatus(const std::size_t query_id) const;
+
  protected:
   static constexpr std::size_t kMaxConcurrentQueries = 1;
 
