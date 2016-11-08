@@ -31,6 +31,7 @@
 #include "query_execution/QueryExecutionUtil.hpp"
 #include "query_execution/WorkerDirectory.hpp"
 #include "query_execution/WorkerMessage.hpp"
+#include "query_optimizer/QueryHandle.hpp"
 #include "threading/ThreadUtil.hpp"
 #include "utility/EqualsAnyConstant.hpp"
 #include "utility/Macros.hpp"
@@ -49,8 +50,6 @@ using std::vector;
 
 namespace quickstep {
 
-class QueryHandle;
-
 DEFINE_uint64(min_load_per_worker, 2, "The minimum load defined as the number "
               "of pending work orders for the worker. This information is used "
               "by the Foreman to assign work orders to worker threads");
@@ -68,7 +67,9 @@ ForemanSingleNode::ForemanSingleNode(
       main_thread_client_id_(main_thread_client_id),
       worker_directory_(DCHECK_NOTNULL(worker_directory)),
       catalog_database_(DCHECK_NOTNULL(catalog_database)),
-      storage_manager_(DCHECK_NOTNULL(storage_manager)) {
+      storage_manager_(DCHECK_NOTNULL(storage_manager)),
+      progress_counter_(0),
+      current_query_id_(0) {
   const std::vector<QueryExecutionMessageType> sender_message_types{
       kPoisonMessage,
       kRebuildWorkOrderMessage,
@@ -122,6 +123,13 @@ void ForemanSingleNode::run() {
       case kWorkOrderCompleteMessage:
       case kWorkOrderFeedbackMessage: {
         policy_enforcer_->processMessage(tagged_message);
+        ++progress_counter_;
+        if (progress_counter_ == 1000) {
+            const auto &profiling_stats =
+                getWorkOrderProfilingResults(current_query_id_);
+            dag_visualizer_->bindProfilingStats(profiling_stats);
+          std::cerr << "\n" << dag_visualizer_->toDOT() << "\n";
+        }
         break;
       }
 
@@ -135,6 +143,8 @@ void ForemanSingleNode::run() {
         if (query_handles.size() == 1u) {
           all_queries_admitted =
               policy_enforcer_->admitQuery(query_handles.front());
+          current_query_id_ = query_handles.front()->query_id();
+          dag_visualizer_.reset(new ExecutionDAGVisualizer(*(query_handles.front()->getQueryPlanMutable())));
         } else {
           all_queries_admitted = policy_enforcer_->admitQueries(query_handles);
         }

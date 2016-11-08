@@ -21,6 +21,7 @@
 #define QUICKSTEP_QUERY_EXECUTION_FOREMAN_HPP_
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "query_execution/ForemanBase.hpp"
 #include "query_execution/PolicyEnforcerSingleNode.hpp"
 #include "utility/Macros.hpp"
+#include "utility/ExecutionDAGVisualizer.hpp"
 
 #include "tmb/id_typedefs.h"
 
@@ -143,6 +145,10 @@ class ForemanSingleNode final : public ForemanBase {
   StorageManager *storage_manager_;
 
   std::unique_ptr<PolicyEnforcerSingleNode> policy_enforcer_;
+
+  std::unique_ptr<ExecutionDAGVisualizer> dag_visualizer_;
+  std::uint32_t progress_counter_;
+  std::size_t current_query_id_;
 
   DISALLOW_COPY_AND_ASSIGN(ForemanSingleNode);
 };

@@ -118,8 +118,10 @@ target_link_libraries(quickstep_queryexecution_ForemanSingleNode
                       quickstep_queryexecution_QueryExecutionUtil
                       quickstep_queryexecution_WorkerDirectory
                       quickstep_queryexecution_WorkerMessage
+                      quickstep_queryoptimizer_QueryHandle
                       quickstep_threading_ThreadUtil
                       quickstep_utility_EqualsAnyConstant
+                      quickstep_utility_ExecutionDAGVisualizer
                       quickstep_utility_Macros
                       tmb
                       ${GFLAGS_LIB_NAME})
