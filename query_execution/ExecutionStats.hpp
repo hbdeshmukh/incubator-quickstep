@@ -142,7 +142,7 @@ class ExecutionStats {
      *        these are the last N (=max_entries) entries.
      **/
     explicit OperatorStats(const std::size_t max_entries) : max_entries_(max_entries) {
-      DCHECK_GE(max_entries, 0);
+      DCHECK_GE(max_entries, 0Lu);
     }
 
     inline std::pair<std::uint64_t, std::size_t> getStats() const {
