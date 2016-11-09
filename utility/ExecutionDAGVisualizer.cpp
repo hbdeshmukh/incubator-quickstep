@@ -261,6 +261,7 @@ void ExecutionDAGVisualizer::bindProfilingStatsForRunningQuery(
     max_percentage = std::max(max_percentage, time_percentage[i] + span_percentage[i]);
   }
 
+  std::vector<bool> execution_started(num_nodes_, true);
   for (std::size_t node_index = 0; node_index < num_nodes_; ++node_index) {
     if (nodes_.find(node_index) != nodes_.end()) {
       const std::size_t relop_start_time = time_start[node_index];
@@ -276,27 +277,48 @@ void ExecutionDAGVisualizer::bindProfilingStatsForRunningQuery(
         node_info.labels.emplace_back(
             "span: " +
             std::to_string((relop_end_time - relop_start_time) / 1000) + "ms");
+        std::cout << "1 -- Start: " << relop_start_time << " end: " << relop_end_time << "\n";
       } else {
-        node_info.labels.emplace_back(
-            "span: [" +
-            std::to_string((relop_start_time - overall_start_time) / 1000) + "ms, " +
-            std::to_string((relop_end_time - overall_start_time) / 1000) + "ms] (" +
-            FormatDigits(span_percentage[node_index], 2) + "%)");
+        std::size_t effective_start_time = 0;
+        if (relop_start_time > overall_start_time) {
+          effective_start_time = relop_start_time - overall_start_time;
+        }
+        std::size_t effective_end_time = 0;
+        if (relop_end_time > overall_start_time) {
+          effective_end_time = relop_end_time - overall_start_time;
+        }
+        if (effective_start_time > effective_end_time) {
+          // This operator has not begun its execution.
+          execution_started[node_index] = false;
+          effective_start_time = 0;
+        }
+        if (execution_started[node_index]) {
+          node_info.labels.emplace_back(
+              "span: [" +
+              std::to_string((effective_start_time) / 1000) + "ms, " +
+              std::to_string((effective_end_time) / 1000) + "ms] (" +
+              FormatDigits(span_percentage[node_index], 2) + "%)");
+          // std::cout << "2 -- Start: " << relop_start_time << " end: " << relop_end_time << " Overall start: " << overall_start_time << "\n";
+        }
       }
 
-      node_info.labels.emplace_back(
-          "total: " +
-          std::to_string(relop_elapsed_time / 1000) + "ms (" +
-          FormatDigits(time_percentage[node_index], 2) + "%)");
+      if (execution_started[node_index]) {
+        /*node_info.labels.emplace_back(
+            "total: " +
+            std::to_string(relop_elapsed_time / 1000) + "ms (" +
+            FormatDigits(time_percentage[node_index], 2) + "%)");*/
 
-      const double concurrency =
-          static_cast<double>(relop_elapsed_time) / (relop_end_time - relop_start_time);
-      node_info.labels.emplace_back(
-          "effective concurrency: " + FormatDigits(concurrency, 2));
+        const double concurrency =
+            static_cast<double>(relop_elapsed_time) / (relop_end_time - relop_start_time);
+        node_info.labels.emplace_back(
+            "effective concurrency: " + FormatDigits(concurrency, 2));
+      }
       if (operators_completion_status[node_index]) {
         node_info.labels.emplace_back("Completed");
-      } else {
-        node_info.labels.emplace_back("Not completed");
+      } else if (!execution_started[node_index]) {
+        node_info.labels.emplace_back("Not started");
+      } else if (execution_started[node_index]) {
+        node_info.labels.emplace_back("In progress");
       }
     }
   }
