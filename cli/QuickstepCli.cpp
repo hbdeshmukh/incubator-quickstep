@@ -487,10 +487,10 @@ int main(int argc, char* argv[]) {
                                                    stdout);
           }
           if (quickstep::FLAGS_visualize_execution_dag) {
-            const auto &profiling_stats =
+            /*const auto &profiling_stats =
                 foreman.getWorkOrderProfilingResults(query_handle->query_id());
             dag_visualizer->bindProfilingStats(profiling_stats);
-            std::cerr << "\n" << dag_visualizer->toDOT() << "\n";
+            std::cerr << "\n" << dag_visualizer->toDOT() << "\n";*/
           }
         } catch (const std::exception &e) {
           fprintf(stderr, "QUERY EXECUTION ERROR: %s\n", e.what());
