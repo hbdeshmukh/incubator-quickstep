@@ -73,6 +73,7 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
 
       op_index = proto.operator_index();
       admitted_queries_[query_id]->processWorkOrderCompleteMessage(op_index, proto.partition_id());
+      LOG(INFO) << "Memory: " << getCurrentMemoryUsageInBytes();
       break;
     }
     case kRebuildWorkOrderCompleteMessage: {
@@ -88,6 +89,7 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
 
       op_index = proto.operator_index();
       admitted_queries_[query_id]->processRebuildWorkOrderCompleteMessage(op_index, proto.partition_id());
+      LOG(INFO) << "Memory: " << getCurrentMemoryUsageInBytes();
       break;
     }
     case kCatalogRelationNewBlockMessage: {
@@ -153,6 +155,7 @@ void PolicyEnforcerBase::removeQuery(const std::size_t query_id) {
                  << " that hasn't finished its execution";
   }
   admitted_queries_.erase(query_id);
+
 }
 
 bool PolicyEnforcerBase::admitQueries(

@@ -199,6 +199,7 @@ target_link_libraries(quickstep_queryexecution_PolicyEnforcerSingleNode
                       quickstep_queryexecution_WorkerDirectory
                       quickstep_queryexecution_WorkerMessage
                       quickstep_queryoptimizer_QueryHandle
+                      quickstep_storage_StorageManager
                       quickstep_utility_Macros
                       tmb
                       ${GFLAGS_LIB_NAME})

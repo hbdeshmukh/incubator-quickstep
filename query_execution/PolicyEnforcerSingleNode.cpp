@@ -33,6 +33,7 @@
 #include "query_execution/WorkerDirectory.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
+#include "storage/StorageManager.hpp"
 
 #include "gflags/gflags.h"
 #include "glog/logging.h"
@@ -106,6 +107,10 @@ bool PolicyEnforcerSingleNode::admitQuery(QueryHandle *query_handle) {
     waiting_queries_.push(query_handle);
     return false;
   }
+}
+
+std::size_t PolicyEnforcerSingleNode::getCurrentMemoryUsageInBytes() {
+  return storage_manager_->getMemorySize();
 }
 
 }  // namespace quickstep

@@ -88,6 +88,8 @@ class PolicyEnforcerSingleNode final : public PolicyEnforcerBase {
   void getWorkerMessages(
       std::vector<std::unique_ptr<WorkerMessage>> *worker_messages);
 
+  std::size_t getCurrentMemoryUsageInBytes() override;
+
  private:
   void decrementNumQueuedWorkOrders(const serialization::WorkOrderCompletionMessage &proto) override {
     worker_directory_->decrementNumQueuedWorkOrders(proto.worker_thread_index());

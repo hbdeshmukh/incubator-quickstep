@@ -153,6 +153,10 @@ class PolicyEnforcerBase {
    **/
   virtual bool admitQuery(QueryHandle *query_handle) = 0;
 
+  virtual std::size_t getCurrentMemoryUsageInBytes() {
+    return 0;
+  }
+
  protected:
   static constexpr std::size_t kMaxConcurrentQueries = 1;
 
