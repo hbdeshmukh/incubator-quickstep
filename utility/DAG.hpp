@@ -103,6 +103,25 @@ class DAG {
    * @return An unordered set made of the indices of the dependencies of the
    *         specified node.
    **/
+  inline const std::unordered_set<size_type_nodes> getDependentsAsSet(
+      const size_type_nodes node_index) const {
+    DCHECK_LT(node_index, nodes_.size());
+    auto deps = nodes_[node_index].getDependents();
+    std::unordered_set<size_type_nodes> dependents_set;
+    for (auto deps_pair : deps) {
+      dependents_set.emplace(deps_pair.first);
+    }
+    return dependents_set;
+  }
+
+  /**
+   * @brief Get the dependencies of the specified node.
+   *
+   * @param node_index The index of the specified node.
+   *
+   * @return An unordered set made of the indices of the dependencies of the
+   *         specified node.
+   **/
   inline const std::unordered_set<size_type_nodes>& getDependencies(const size_type_nodes node_index) const {
     DCHECK_LT(node_index, nodes_.size());
     return nodes_[node_index].getDependencies();
