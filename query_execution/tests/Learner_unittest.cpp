@@ -156,7 +156,7 @@ TEST_F(LearnerTest, AddCompletionFeedbackSamePriorityLevelTest) {
   serialization::NormalWorkOrderCompletionMessage completion_message =
       createMockCompletionMessage(handle1->query_id(), 0);
 
-  learner.addCompletionFeedback(completion_message);
+  learner.addCompletionFeedback<true>(completion_message);
   EXPECT_TRUE(learner.hasActiveQueries());
   EXPECT_EQ(1u, learner.getTotalNumActiveQueries());
   EXPECT_EQ(1u, learner.getNumActiveQueriesInPriorityLevel(kPriorityLevel));
@@ -164,7 +164,7 @@ TEST_F(LearnerTest, AddCompletionFeedbackSamePriorityLevelTest) {
   handle2.reset(new QueryHandle(2, kPriorityLevel));
   learner.addQuery(*handle2);
   completion_message = createMockCompletionMessage(handle2->query_id(), 0);
-  learner.addCompletionFeedback(completion_message);
+  learner.addCompletionFeedback<true>(completion_message);
 
   EXPECT_TRUE(learner.hasActiveQueries());
   EXPECT_EQ(2u, learner.getTotalNumActiveQueries());
@@ -198,7 +198,7 @@ TEST_F(LearnerTest, AddCompletionFeedbackMultiplePriorityLevelsTest) {
       EXPECT_TRUE(learner.hasActiveQueries());
       serialization::NormalWorkOrderCompletionMessage completion_message =
         createMockCompletionMessage(handles[index]->query_id(), 0);
-      learner.addCompletionFeedback(completion_message);
+      learner.addCompletionFeedback<true>(completion_message);
       EXPECT_EQ(2u, learner.getTotalNumActiveQueries());
       EXPECT_EQ(1u, learner.getNumActiveQueriesInPriorityLevel(kPriorityLevel1));
       EXPECT_EQ(1u, learner.getNumActiveQueriesInPriorityLevel(kPriorityLevel2));
@@ -482,7 +482,7 @@ TEST_F(LearnerTest, PickRandomQueryCurrentProbabilitiesTest) {
        it != query_ids_insertion_order.end();
        ++it) {
     // LOG(INFO) << "Completion message for query : " << *it;
-    learner.addCompletionFeedback(createMockCompletionMessage(*it, kOperatorID));
+    learner.addCompletionFeedback<true>(createMockCompletionMessage(*it, kOperatorID));
   }
 
   // Repeat the tests a few more times.
