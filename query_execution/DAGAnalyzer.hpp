@@ -21,6 +21,7 @@
 #define QUICKSTEP_QUERY_EXECUTION_DAG_ANALYZER_HPP_
 
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include "query_execution/Pipeline.hpp"
@@ -76,6 +77,61 @@ class DAGAnalyzer {
     return -1;
   }
 
+  /**
+   * @brief Check if pipeline has dependencies.
+   *
+   * @note This is a static check, i.e. it relies on the initial configuration
+   *       of the DAG and doesn't care about updates in the DAG.
+   *
+   * @param pipeline_id The ID of the pipeline.
+   *
+   * @return True if the pipeline has dependencies, false otherwise.
+   **/
+  bool checkPipelinehasDependenciesStatic(const std::size_t pipeline_id) const {
+    return !getPipelinesConnectedToStart(pipeline_id).empty();
+  }
+
+  /**
+   * @brief Get the pipelines that are connected to the start of the given
+   *        pipeline.
+   **/
+  std::vector<std::size_t> getPipelinesConnectedToStart(
+      const std::size_t pipeline_id) const {
+    const std::size_t pipeline_start_node_id =
+        pipelines_[pipeline_id]->getPipelineStartPoint();
+    auto dependency_nodes = query_plan_dag_->getDependencies(pipeline_start_node_id);
+    return getPipelinesForNodes(dependency_nodes);
+  }
+
+  /**
+   * @brief Get the pipelines that are connected to the end of the given
+   *        pipeline.
+   **/
+  std::vector<std::size_t> getPipelinesConnectedToEnd(
+      const std::size_t pipeline_id) const {
+    const std::size_t pipeline_end_node_id =
+        pipelines_[pipeline_id]->getPipelineEndPoint();
+    return getPipelinesForNodes(
+        query_plan_dag_->getDependentsAsSet(pipeline_end_node_id));
+  }
+
+  /**
+   * @brief Get the pipelines that don't have a dependency pipeline.
+   *
+   * @note This is a static check, performed by disregarding the state of the DAG.
+   **/
+  std::vector<std::size_t> getFreePipelinesStatic() const {
+    std::vector<std::size_t> free_pipelines;
+    for (std::size_t pipeline_id = 0;
+         pipeline_id < pipelines_.size();
+         ++pipeline_id) {
+      if (checkPipelinehasDependenciesStatic(pipeline_id)) {
+        free_pipelines.emplace_back(pipeline_id);
+      }
+    }
+    return free_pipelines;
+  }
+
  private:
   DAG<RelationalOperator, bool> *query_plan_dag_;
   std::vector<std::unique_ptr<Pipeline>> pipelines_;
@@ -89,6 +145,18 @@ class DAGAnalyzer {
    * @brief Find the total number of nodes in all pipelines.
    **/
   const std::size_t getTotalNodes();
+
+  std::vector<std::size_t> getPipelinesForNodes(
+      std::unordered_set<std::size_t> node_ids) const {
+    if (!node_ids.empty()) {
+      std::vector<std::size_t> pipelines;
+      for (auto node_id : node_ids) {
+        pipelines.emplace_back(getPipelineID(node_id));
+      }
+      return pipelines;
+    }
+    return {};
+  }
 
   DISALLOW_COPY_AND_ASSIGN(DAGAnalyzer);
 };

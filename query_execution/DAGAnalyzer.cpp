@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <memory>
 #include <queue>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -77,8 +78,7 @@ void DAGAnalyzer::findPipelines() {
       }
     }
   }
-  // Assuming that we have a connected DAG, make sure that all nodes belong to
-  // some pipeline exactly once.
+  // Make sure that all nodes belong to some pipeline exactly once.
   DCHECK_EQ(query_plan_dag_->size(), getTotalNodes());
 }
 

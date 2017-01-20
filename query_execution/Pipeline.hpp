@@ -89,6 +89,22 @@ class Pipeline {
     return operators_.size();
   }
 
+  /**
+   * @brief Get the starting node of the pipeline.
+   **/
+  std::size_t getPipelineStartPoint() const {
+    DCHECK(!operators_.empty());
+    return operators_.front();
+  }
+
+  /**
+   * @brief Get the ending node of the pipeline.
+   **/
+  std::size_t getPipelineEndPoint() const {
+    DCHECK(!operators_.empty());
+    return operators_.back();
+  }
+
  private:
   std::vector<std::size_t> operators_;
 
