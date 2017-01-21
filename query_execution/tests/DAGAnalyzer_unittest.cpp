@@ -87,6 +87,8 @@ TEST(DAGAnalyzerTest, MultipleNodesOnePipelineTest) {
 
   DAGAnalyzer analyzer(dag.get());
   EXPECT_EQ(1u, analyzer.getNumPipelines());
+
+  analyzer.visualizePipelines();
 }
 
 TEST(DAGAnalyzerTest, VShapedDAGTest) {
