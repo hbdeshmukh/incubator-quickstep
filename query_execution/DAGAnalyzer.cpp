@@ -21,8 +21,11 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
 #include <memory>
 #include <queue>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -88,6 +91,85 @@ const std::size_t DAGAnalyzer::getTotalNodes() {
     total += pipelines_[i]->size();
   }
   return total;
+}
+
+void DAGAnalyzer::visualizePipelines() {
+  // First start with free pipelines and then recursively plot the pipelines
+  // that are connected to them.
+  std::vector<NodeInfo> pipelines_info;
+  std::vector<EdgeInfo> edges;
+  std::unordered_map<std::size_t, bool> visited_pipelines;
+  std::queue<std::size_t> to_be_checked_pipelines;
+  auto free_pipelines = getFreePipelinesStatic();
+  for (std::size_t free_pipeline_id : free_pipelines) {
+    pipelines_info.emplace_back(plotSinglePipeline(free_pipeline_id));
+    auto connected_pipelines = getPipelinesConnectedToEnd(free_pipeline_id);
+    for (auto connected_pid : connected_pipelines) {
+      to_be_checked_pipelines.push(connected_pid);
+      edges.emplace_back(free_pipeline_id, connected_pid);
+    }
+    visited_pipelines[free_pipeline_id] = true;
+  }
+  while (!to_be_checked_pipelines.empty()) {
+    std::size_t next_pipeline = to_be_checked_pipelines.front();
+    to_be_checked_pipelines.pop();
+    if (visited_pipelines.find(next_pipeline) == visited_pipelines.end()) {
+      pipelines_info.emplace_back(plotSinglePipeline(next_pipeline));
+      auto connected_pipelines = getPipelinesConnectedToEnd(next_pipeline);
+      for (auto connected_pid : connected_pipelines) {
+        if (visited_pipelines.find(connected_pid) == visited_pipelines.end()) {
+          to_be_checked_pipelines.push(connected_pid);
+          edges.emplace_back(next_pipeline, connected_pid);
+        }
+      }
+      visited_pipelines[next_pipeline] = true;
+    }
+  }
+  std::cout << "Visualizing pipelines: # pipelines: " << pipelines_info.size()
+            << " # edges: " << edges.size() << std::endl;
+  std::cout << visualizePipelinesHelper(pipelines_info, edges);
+}
+
+std::string DAGAnalyzer::visualizePipelinesHelper(
+    const std::vector<struct NodeInfo> &pipelines_info,
+    const std::vector<struct EdgeInfo> &edges) {
+  // Format output graph
+  std::ostringstream graph_oss;
+  graph_oss << "digraph g {\n";
+  graph_oss << "  rankdir=BT\n";
+  graph_oss << "  node [penwidth=2]\n";
+  graph_oss << "  edge [fontsize=16 fontcolor=gray penwidth=2]\n\n";
+
+  // Format nodes
+  for (const auto &pipeline : pipelines_info) {
+    graph_oss << pipeline.id << " [ label= \"";
+    graph_oss << pipeline.labels;
+    graph_oss << "\"]\n";
+  }
+
+  // Format edges
+  for (const EdgeInfo &edge_info : edges) {
+    graph_oss << "  " << edge_info.src_node_id << " -> "
+              << edge_info.dst_node_id << " [ ";
+    graph_oss << "]\n";
+  }
+  graph_oss << "}\n";
+  return graph_oss.str();
+}
+
+struct DAGAnalyzer::NodeInfo DAGAnalyzer::plotSinglePipeline(std::size_t pipeline_id) const {
+  NodeInfo current_node;
+  current_node.id = pipeline_id;
+  current_node.labels += "[";
+  current_node.labels += std::to_string(pipeline_id);
+  current_node.labels += "] Operators: ";
+  auto nodes_in_pipeline = pipelines_[pipeline_id]->getOperatorIDs();
+  for (auto node_id : nodes_in_pipeline) {
+    current_node.labels += std::to_string(node_id);
+    current_node.labels += "-";
+  }
+  current_node.labels += "";
+  return current_node;
 }
 
 }  // namespace quickstep

@@ -21,6 +21,7 @@
 #define QUICKSTEP_QUERY_EXECUTION_DAG_ANALYZER_HPP_
 
 #include <memory>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -122,17 +123,37 @@ class DAGAnalyzer {
    **/
   std::vector<std::size_t> getFreePipelinesStatic() const {
     std::vector<std::size_t> free_pipelines;
-    for (std::size_t pipeline_id = 0;
-         pipeline_id < pipelines_.size();
-         ++pipeline_id) {
-      if (checkPipelinehasDependenciesStatic(pipeline_id)) {
-        free_pipelines.emplace_back(pipeline_id);
+    for (std::size_t id = 0; id < pipelines_.size(); ++id) {
+      if (!checkPipelinehasDependenciesStatic(id)) {
+        free_pipelines.emplace_back(id);
       }
     }
     return free_pipelines;
   }
 
+  void visualizePipelines();
+
  private:
+  /**
+   * @brief Information of a graph node.
+   */
+  struct NodeInfo {
+    std::size_t id;
+    std::string labels;
+    std::string color;
+  };
+
+  /**
+   * @brief Information of a graph edge.
+   */
+  struct EdgeInfo {
+    EdgeInfo(std::size_t src, std::size_t dst)
+        : src_node_id(src), dst_node_id(dst) {}
+
+    std::size_t src_node_id;
+    std::size_t dst_node_id;
+  };
+
   DAG<RelationalOperator, bool> *query_plan_dag_;
   std::vector<std::unique_ptr<Pipeline>> pipelines_;
 
@@ -157,6 +178,11 @@ class DAGAnalyzer {
     }
     return {};
   }
+
+  struct NodeInfo plotSinglePipeline(std::size_t pipeline_id) const;
+
+  std::string visualizePipelinesHelper(const std::vector<struct NodeInfo> &pipelines_info,
+                                const std::vector<struct EdgeInfo> &edges);
 
   DISALLOW_COPY_AND_ASSIGN(DAGAnalyzer);
 };
