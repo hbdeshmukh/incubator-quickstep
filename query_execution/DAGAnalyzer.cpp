@@ -53,22 +53,60 @@ void DAGAnalyzer::findPipelines() {
     }
   }
   while (!to_be_checked_nodes.empty()) {
+    // Get the next node to be checked.
     auto queue_front = to_be_checked_nodes.front();
     to_be_checked_nodes.pop();
     const std::size_t pipeline_id = queue_front.second;
     const std::size_t operator_id = queue_front.first;
+
+    // Make sure this node has already been visited.
+    DCHECK(visited_nodes.end() != visited_nodes.find(operator_id));
+
+    // Get all the dependents of the operator.
+    // This is a list of pairs, in which first element is the operator ID of the
+    // dependent and second element is a boolean.
+    // If the boolean is true, that means the link between the operators is
+    // pipeline breaker, otherwise it is pipeline-able.
     auto dependents = query_plan_dag_->getDependents(operator_id);
+    DLOG(INFO) << "Scanning dependents of " << operator_id << std::endl;
+
+    // Traverse over all the dependents ...
     for (auto dependent_pair : dependents) {
       const std::size_t dependent_id = dependent_pair.first;
+      // We create a new pipeline for the dependent if at least one of the two
+      // condition holds:
+      // 1. There are more than one dependencies of the given node.
+      // 2. The edge between two nodes is pipeline-breaking.
       const bool dependent_in_new_pipeline =
           (query_plan_dag_->getDependencies(dependent_id).size() > 1u) ||
           (dependent_pair.second);
+      DLOG(INFO) << "Dependent ID: " << dependent_id << " in new pipeline? " << dependent_in_new_pipeline << std::endl;
       if (dependent_in_new_pipeline) {
         // Start a new pipeline.
         if (visited_nodes.find(dependent_id) == visited_nodes.end()) {
           pipelines_.push_back(std::unique_ptr<Pipeline>(new Pipeline(dependent_id)));
           to_be_checked_nodes.emplace(dependent_id, pipelines_.size() - 1);
+          // Link the two pipelines. dependent_id is the dependent of
+          // operator_id, which means the new pipeline is a dependent of the
+          // old pipeline.
+          pipelines_[pipeline_id]->linkPipeline(
+              pipelines_.size() - 1, operator_id, true);
+          pipelines_[pipelines_.size() - 1]->linkPipeline(
+              pipeline_id, dependent_id, false);
           visited_nodes[dependent_id] = true;
+          DLOG(INFO) << "New pipeline for dependent " << dependent_id << std::endl;
+        } else {
+          // We should find the pipelines of which dependent_id is a member.
+          auto pipelines_containing_dependent = getPipelineID(dependent_id);
+          // As dependent is in new pipeline, we are assured that we can connect
+          // pipelines in "pipelines_containing_dependent" with the current
+          // pipeline.
+          DLOG(INFO) << "Dependent " << dependent_id << " already visited" << std::endl;
+          for (auto i : pipelines_containing_dependent) {
+            DLOG(INFO) << "Pipeline (ID="<< pipeline_id << ") containing " << operator_id << " linked with pipeline (ID=" << i << "containing " << dependent_id << std::endl;
+            pipelines_[pipeline_id]->linkPipeline(
+                i, operator_id, true);
+          }
         }
       } else {
         // This means that pipelining is enabled on this link. Add this
@@ -77,9 +115,37 @@ void DAGAnalyzer::findPipelines() {
           pipelines_[pipeline_id]->addOperatorToPipeline(dependent_id);
           to_be_checked_nodes.emplace(dependent_id, pipeline_id);
           visited_nodes[dependent_id] = true;
+          DLOG(INFO) << "Dependent " << dependent_id << " appended to pipeline " << pipeline_id << std::endl;
+        } else {
+          DLOG(INFO) << "Dependent " << dependent_id << " already visited" << std::endl;
         }
       }
     }
+
+    // Now get the dependencies of the given node.
+    // If the dependency node and the given node belong to different pipelines
+    // then link these two pipelines.
+    /*auto dependencies = query_plan_dag_->getDependencies(operator_id);
+    bool more_than_one_dependencies = (dependencies.size() > 1u);
+    for (auto dependency : dependencies) {
+      if (!more_than_one_dependencies) {
+        // Therefore exactly one dependency.
+        if (query_plan_dag_->getLinkMetadata(dependency, operator_id)) {
+          // This is a pipeline breaker link, which means dependency and operator_id
+          // belong to different pipelines.
+        }
+      }
+      given_operator_in_new_pipeline =
+          query_plan_dag_->getLinkMetadata(dependency, operator_id);
+      if (given_operator_in_new_pipeline) {
+        // Confirm if there are more than one dependencies for operator.
+      }
+      auto pipelines_ids_containing_dependency = getPipelineID(dependency);
+      removeElementFromVector(&pipelines_ids_containing_dependency, pipeline_id);
+      for (auto curr_pipeline_id_containing_dependency :
+           pipelines_ids_containing_dependency) {
+      }
+    }*/
   }
   // Make sure that all nodes belong to some pipeline exactly once.
   DCHECK_EQ(query_plan_dag_->size(), getTotalNodes());
@@ -94,40 +160,13 @@ const std::size_t DAGAnalyzer::getTotalNodes() {
 }
 
 void DAGAnalyzer::visualizePipelines() {
-  // First start with free pipelines and then recursively plot the pipelines
-  // that are connected to them.
-  std::vector<NodeInfo> pipelines_info;
-  std::vector<EdgeInfo> edges;
-  std::unordered_map<std::size_t, bool> visited_pipelines;
-  std::queue<std::size_t> to_be_checked_pipelines;
-  auto free_pipelines = getFreePipelinesStatic();
-  for (std::size_t free_pipeline_id : free_pipelines) {
-    pipelines_info.emplace_back(plotSinglePipeline(free_pipeline_id));
-    auto connected_pipelines = getPipelinesConnectedToEnd(free_pipeline_id);
-    for (auto connected_pid : connected_pipelines) {
-      to_be_checked_pipelines.push(connected_pid);
-      edges.emplace_back(free_pipeline_id, connected_pid);
-    }
-    visited_pipelines[free_pipeline_id] = true;
+  std::vector<struct NodeInfo> pipelines_info;
+  std::vector<struct EdgeInfo> edges;
+  for (std::size_t id = 0; id < pipelines_.size(); ++id) {
+    plotSinglePipeline(id, &pipelines_info, &edges);
   }
-  while (!to_be_checked_pipelines.empty()) {
-    std::size_t next_pipeline = to_be_checked_pipelines.front();
-    to_be_checked_pipelines.pop();
-    if (visited_pipelines.find(next_pipeline) == visited_pipelines.end()) {
-      pipelines_info.emplace_back(plotSinglePipeline(next_pipeline));
-      auto connected_pipelines = getPipelinesConnectedToEnd(next_pipeline);
-      for (auto connected_pid : connected_pipelines) {
-        if (visited_pipelines.find(connected_pid) == visited_pipelines.end()) {
-          to_be_checked_pipelines.push(connected_pid);
-          edges.emplace_back(next_pipeline, connected_pid);
-        }
-      }
-      visited_pipelines[next_pipeline] = true;
-    }
-  }
-  std::cout << "Visualizing pipelines: # pipelines: " << pipelines_info.size()
-            << " # edges: " << edges.size() << std::endl;
-  std::cout << visualizePipelinesHelper(pipelines_info, edges);
+  std::cout << "# nodes: " << pipelines_info.size() << " # edges: " << edges.size() << std::endl;
+  std::cout << visualizePipelinesHelper(pipelines_info, edges) << std::endl;
 }
 
 std::string DAGAnalyzer::visualizePipelinesHelper(
@@ -135,7 +174,7 @@ std::string DAGAnalyzer::visualizePipelinesHelper(
     const std::vector<struct EdgeInfo> &edges) {
   // Format output graph
   std::ostringstream graph_oss;
-  graph_oss << "digraph g {\n";
+  graph_oss << "strict digraph g {\n";
   graph_oss << "  rankdir=BT\n";
   graph_oss << "  node [penwidth=2]\n";
   graph_oss << "  edge [fontsize=16 fontcolor=gray penwidth=2]\n\n";
@@ -157,7 +196,10 @@ std::string DAGAnalyzer::visualizePipelinesHelper(
   return graph_oss.str();
 }
 
-struct DAGAnalyzer::NodeInfo DAGAnalyzer::plotSinglePipeline(std::size_t pipeline_id) const {
+void DAGAnalyzer::plotSinglePipeline(
+    std::size_t pipeline_id,
+    std::vector<struct NodeInfo> *nodes,
+    std::vector<struct EdgeInfo> *edges) const {
   NodeInfo current_node;
   current_node.id = pipeline_id;
   current_node.labels += "[";
@@ -166,10 +208,18 @@ struct DAGAnalyzer::NodeInfo DAGAnalyzer::plotSinglePipeline(std::size_t pipelin
   auto nodes_in_pipeline = pipelines_[pipeline_id]->getOperatorIDs();
   for (auto node_id : nodes_in_pipeline) {
     current_node.labels += std::to_string(node_id);
-    current_node.labels += "-";
+    current_node.labels += "  ";
   }
   current_node.labels += "";
-  return current_node;
+  nodes->push_back(current_node);
+  auto neighbor_pipelines = pipelines_[pipeline_id]->getAllConnectedPipelines();
+  for (const PipelineConnection &neighbor : neighbor_pipelines) {
+    if (neighbor.checkPipelineIsDependent()) {
+      edges->emplace_back(pipeline_id, neighbor.getConnectedPipelineID());
+    } else {
+      edges->emplace_back(neighbor.getConnectedPipelineID(), pipeline_id);
+    }
+  }
 }
 
 }  // namespace quickstep

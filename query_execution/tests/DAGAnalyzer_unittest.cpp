@@ -105,6 +105,8 @@ TEST(DAGAnalyzerTest, VShapedDAGTest) {
   // Expect three pipelines, one for each node. n1 is not part of either n0 or
   // n1's pipeline, because it has more than one dependencies.
   EXPECT_EQ(3u, analyzer.getNumPipelines());
+
+  analyzer.visualizePipelines();
 }
 
 }  // namespace quickstep
