@@ -61,21 +61,22 @@ class DAGAnalyzer {
   }
 
   /**
-   * @brief Get the pipeline ID of the given operator.
+   * @brief Get the IDs of those pipelines of which operator_id is a part.
    *
    * @param operator_id The ID of the given operator.
    *
-   * @return Pipeline ID if such a pipeline exists, otherwise -1.
+   * @return Pipeline IDs if such pipeline(s) exist.
    **/
-  const int getPipelineID(const std::size_t operator_id) const {
+  const std::vector<std::size_t> getPipelineID(const std::size_t operator_id) const {
+    std::vector<std::size_t> result_pipelines;
     for (std::size_t pipeline_id = 0;
          pipeline_id < pipelines_.size();
          ++pipeline_id) {
       if (pipelines_[pipeline_id]->hasOperator(operator_id)) {
-        return pipeline_id;
+        result_pipelines.emplace_back(pipeline_id);
       }
     }
-    return -1;
+    return result_pipelines;
   }
 
   /**
@@ -96,24 +97,71 @@ class DAGAnalyzer {
    * @brief Get the pipelines that are connected to the start of the given
    *        pipeline.
    **/
-  std::vector<std::size_t> getPipelinesConnectedToStart(
+  std::unordered_set<std::size_t> getPipelinesConnectedToStart(
       const std::size_t pipeline_id) const {
     const std::size_t pipeline_start_node_id =
         pipelines_[pipeline_id]->getPipelineStartPoint();
     auto dependency_nodes = query_plan_dag_->getDependencies(pipeline_start_node_id);
-    return getPipelinesForNodes(dependency_nodes);
+    auto pipelines_containing_dependency_nodes =
+        getPipelinesForNodes(dependency_nodes);
+    // Remove self pipeline_id from this set.
+    removeElementFromSet(&pipelines_containing_dependency_nodes, pipeline_id);
+    return pipelines_containing_dependency_nodes;
   }
 
   /**
    * @brief Get the pipelines that are connected to the end of the given
    *        pipeline.
    **/
-  std::vector<std::size_t> getPipelinesConnectedToEnd(
+  std::unordered_set<std::size_t> getPipelinesConnectedToEnd(
       const std::size_t pipeline_id) const {
     const std::size_t pipeline_end_node_id =
         pipelines_[pipeline_id]->getPipelineEndPoint();
-    return getPipelinesForNodes(
+    auto pipelines_containing_dependent_nodes = getPipelinesForNodes(
         query_plan_dag_->getDependentsAsSet(pipeline_end_node_id));
+    // Remove self pipeline_id from this set.
+    removeElementFromSet(&pipelines_containing_dependent_nodes, pipeline_id);
+    return pipelines_containing_dependent_nodes;
+  }
+
+  /**
+   * @brief Get the pipelines which are connected (and end) at an intermediate
+   *        node of the given pipeline.
+   *
+   * @note This function is only relevant if there exists an intermediate node
+   *       in the pipeline, i.e. len(pipeline) > 2.
+   *
+   * @note Because of the condition that "a node with more than one dependencies
+   *       should belong to its own pipeline", this function will always result
+   *       empty vector.
+   **/
+  std::unordered_set<std::size_t> getPipelinesEndingAtIntermediateNode(
+      const std::size_t pipeline_id) {
+    std::unordered_set<std::size_t> result_pipelines;
+    return result_pipelines;
+  }
+
+  /**
+   * @brief Get the pipelines which are connected (and begin ) at an
+   *        intermediate node of the given pipeline.
+   *
+   * @note This function is only relevant if there exists an intermediate node
+   *       in the pipeline, i.e. len(pipeline) > 2.
+   **/
+  std::unordered_set<std::size_t> getPipelinesStartingAtIntermediateNode(
+      const std::size_t pipeline_id) {
+    std::unordered_set<std::size_t> result_pipelines;
+    if (pipelines_[pipeline_id]->size() > 2u) {
+      // Find the intermediate nodes.
+      auto all_nodes = pipelines_[pipeline_id]->getOperatorIDs();
+      std::unordered_set<std::size_t> intermediate_nodes;
+      auto begin_it = all_nodes.begin() + 1;
+      auto end_it = all_nodes.end() - 1;
+      intermediate_nodes.insert(begin_it, end_it);
+      result_pipelines = getPipelinesForNodes(intermediate_nodes);
+      removeElementFromSet(&result_pipelines, pipeline_id);
+    }
+    return result_pipelines;
   }
 
   /**
@@ -167,19 +215,38 @@ class DAGAnalyzer {
    **/
   const std::size_t getTotalNodes();
 
-  std::vector<std::size_t> getPipelinesForNodes(
+  std::unordered_set<std::size_t> getPipelinesForNodes(
       std::unordered_set<std::size_t> node_ids) const {
+    std::unordered_set<std::size_t> pipelines;
     if (!node_ids.empty()) {
-      std::vector<std::size_t> pipelines;
       for (auto node_id : node_ids) {
-        pipelines.emplace_back(getPipelineID(node_id));
+        auto pipelines_containing_node_id = getPipelineID(node_id);
+        pipelines.insert(pipelines_containing_node_id.begin(),
+                         pipelines_containing_node_id.end());
       }
-      return pipelines;
     }
-    return {};
+    return pipelines;
   }
 
-  struct NodeInfo plotSinglePipeline(std::size_t pipeline_id) const;
+  void removeElementFromVector(std::vector<std::size_t> *vec,
+                               std::size_t elem_removed) const {
+    auto it = std::find(vec->begin(), vec->end(), elem_removed);
+    if (it != vec->end()) {
+      vec->erase(it);
+    }
+  }
+
+  void removeElementFromSet(std::unordered_set<std::size_t> *s,
+                            std::size_t elem_removed) const {
+    auto it = std::find(s->begin(), s->end(), elem_removed);
+    if (it != s->end()) {
+      s->erase(it);
+    }
+  }
+
+  void plotSinglePipeline(std::size_t pipeline_id,
+                          std::vector<struct NodeInfo> *nodes,
+                          std::vector<struct EdgeInfo> *edges) const;
 
   std::string visualizePipelinesHelper(const std::vector<struct NodeInfo> &pipelines_info,
                                 const std::vector<struct EdgeInfo> &edges);

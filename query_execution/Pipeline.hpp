@@ -22,6 +22,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "utility/Macros.hpp"
@@ -33,6 +35,37 @@ namespace quickstep {
 /** \addtogroup QueryExecution
  *  @{
  */
+
+/**
+ * @brief A class that represents the connection between two pipelines.
+ **/
+class PipelineConnection {
+ public:
+  /**
+   * @brief Constructor.
+   **/
+  PipelineConnection(std::size_t connected_pipeline_id,
+                     bool is_dependent)
+      : connected_pipeline_id_(connected_pipeline_id),
+        is_dependent_(is_dependent) {}
+
+  std::size_t getConnectedPipelineID() const {
+    return connected_pipeline_id_;
+  }
+
+  /**
+   * @brief Check if the connected pipeline (i.e. the pipeline with id =
+   *        connected_pipeline_id) is dependent on the given pipeline.
+   **/
+  bool checkPipelineIsDependent() const {
+    return is_dependent_;
+  }
+
+ private:
+  std::size_t connected_pipeline_id_;
+  // Whether the connected_pipeline is a dependent of the given pipeline.
+  bool is_dependent_;
+};
 
 /**
  * @brief A class that abstracts a pipeline of relational operators in a query
@@ -105,8 +138,40 @@ class Pipeline {
     return operators_.back();
   }
 
+  void linkPipeline(std::size_t connected_pipeline_id,
+                    std::size_t connected_operator_id,
+                    bool is_dependent) {
+    connected_pipelines_[connected_operator_id].emplace_back(
+        connected_pipeline_id, is_dependent);
+  }
+
+  const std::vector<PipelineConnection>* getPipelinesConnectedToOperator(
+      std::size_t operator_id) const {
+    if (connected_pipelines_.find(operator_id) != connected_pipelines_.end()) {
+      return &connected_pipelines_.at(operator_id);
+    }
+    return nullptr;
+  }
+
+  const std::vector<PipelineConnection> getAllConnectedPipelines() const {
+    std::vector<PipelineConnection> result_pipelines;
+    for (auto operator_id : operators_) {
+      auto connected_pipelines_to_operator =
+          getPipelinesConnectedToOperator(operator_id);
+      if (connected_pipelines_to_operator != nullptr) {
+        result_pipelines.insert(result_pipelines.end(),
+                                connected_pipelines_to_operator->begin(),
+                                connected_pipelines_to_operator->end());
+      }
+    }
+    return result_pipelines;
+  }
+
  private:
   std::vector<std::size_t> operators_;
+
+  // Key = operator ID, value = connected pipeline to the key operator.
+  std::unordered_map<std::size_t, std::vector<PipelineConnection>> connected_pipelines_;
 
   DISALLOW_COPY_AND_ASSIGN(Pipeline);
 };
