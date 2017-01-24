@@ -179,6 +179,12 @@ class DAGAnalyzer {
     return free_pipelines;
   }
 
+  const std::vector<std::size_t> getAllOperatorsInPipeline(
+      const std::size_t pipeline_id) const {
+    DCHECK_LT(pipeline_id, pipelines_.size());
+    return pipelines_[pipeline_id]->getOperatorIDs();
+  }
+
   void visualizePipelines();
 
  private:

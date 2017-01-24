@@ -195,4 +195,15 @@ void QueryManagerSingleNode::getRebuildWorkOrders(const dag_node_index index,
   }
 }
 
+bool QueryManagerSingleNode::isPipelineExecutionOver(
+    const std::size_t pipeline_id) const {
+  for (auto operator_id :
+       dag_analyzer_->getAllOperatorsInPipeline(pipeline_id)) {
+    if (!query_exec_state_->hasExecutionFinished(operator_id)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace quickstep

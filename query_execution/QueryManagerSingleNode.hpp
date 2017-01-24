@@ -124,6 +124,17 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   void getRebuildWorkOrders(const dag_node_index index,
                             WorkOrdersContainer *container);
 
+  /**
+   * @brief Check if all the operators in this pipeline have finished their
+   *        execution.
+   *
+   * @param pipeline_id The ID of the pipeline.
+   *
+   * @return True if all the operators in this pipeline have finished their
+   *        execution, false otherwise.
+   **/
+  bool isPipelineExecutionOver(const std::size_t pipeline_id) const;
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
