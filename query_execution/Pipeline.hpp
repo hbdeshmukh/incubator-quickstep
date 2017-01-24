@@ -45,9 +45,11 @@ class PipelineConnection {
    * @brief Constructor.
    **/
   PipelineConnection(std::size_t connected_pipeline_id,
-                     bool is_dependent)
+                     bool is_dependent,
+                     bool can_pipelines_be_fused)
       : connected_pipeline_id_(connected_pipeline_id),
-        is_dependent_(is_dependent) {}
+        is_dependent_(is_dependent),
+        can_be_fused_(can_pipelines_be_fused) {}
 
   std::size_t getConnectedPipelineID() const {
     return connected_pipeline_id_;
@@ -61,10 +63,15 @@ class PipelineConnection {
     return is_dependent_;
   }
 
+  bool canPipelinesBeFused() const {
+    return can_be_fused_;
+  }
+
  private:
   std::size_t connected_pipeline_id_;
   // Whether the connected_pipeline is a dependent of the given pipeline.
   bool is_dependent_;
+  bool can_be_fused_;
 };
 
 /**
@@ -140,9 +147,10 @@ class Pipeline {
 
   void linkPipeline(std::size_t connected_pipeline_id,
                     std::size_t connected_operator_id,
-                    bool is_dependent) {
+                    bool is_dependent,
+                    bool can_be_fused) {
     connected_pipelines_[connected_operator_id].emplace_back(
-        connected_pipeline_id, is_dependent);
+        connected_pipeline_id, is_dependent, can_be_fused);
   }
 
   const std::vector<PipelineConnection>* getPipelinesConnectedToOperator(

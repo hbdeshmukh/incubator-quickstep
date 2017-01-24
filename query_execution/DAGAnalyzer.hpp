@@ -195,11 +195,14 @@ class DAGAnalyzer {
    * @brief Information of a graph edge.
    */
   struct EdgeInfo {
-    EdgeInfo(std::size_t src, std::size_t dst)
-        : src_node_id(src), dst_node_id(dst) {}
+    EdgeInfo(std::size_t src, std::size_t dst, bool can_edges_be_fused)
+        : src_node_id(src),
+          dst_node_id(dst),
+          can_be_fused(can_edges_be_fused) {}
 
     std::size_t src_node_id;
     std::size_t dst_node_id;
+    bool can_be_fused;
   };
 
   DAG<RelationalOperator, bool> *query_plan_dag_;
@@ -250,6 +253,12 @@ class DAGAnalyzer {
 
   std::string visualizePipelinesHelper(const std::vector<struct NodeInfo> &pipelines_info,
                                 const std::vector<struct EdgeInfo> &edges);
+
+  /**
+   * @brief Check if src pipeline be fused with dst pipeline.
+   **/
+  bool canPipelinesBeFused(const std::size_t src_pipeline_id,
+                           const std::size_t dst_pipeline_id) const;
 
   DISALLOW_COPY_AND_ASSIGN(DAGAnalyzer);
 };
