@@ -157,6 +157,13 @@ class DAG {
     nodes_[dependent_index].addDependency(dependency_index);
   }
 
+  bool hasLink(const size_type_nodes dependency_index,
+               const size_type_nodes dependent_index) const {
+    auto neighbors_of_dependency = getDependentsAsSet(dependency_index);
+    return neighbors_of_dependency.find(dependent_index) !=
+           neighbors_of_dependency.end();
+  }
+
   /**
    * @brief Set the metadata of the link between dependency and dependent node.
    *

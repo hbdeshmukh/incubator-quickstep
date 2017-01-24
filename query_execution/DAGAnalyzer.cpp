@@ -89,10 +89,18 @@ void DAGAnalyzer::findPipelines() {
           // Link the two pipelines. dependent_id is the dependent of
           // operator_id, which means the new pipeline is a dependent of the
           // old pipeline.
+          const bool can_pipelines_be_fused =
+              canPipelinesBeFused(pipeline_id, pipelines_.size() - 1);
           pipelines_[pipeline_id]->linkPipeline(
-              pipelines_.size() - 1, operator_id, true);
+              pipelines_.size() - 1,
+              operator_id,
+              true,
+              can_pipelines_be_fused);
           pipelines_[pipelines_.size() - 1]->linkPipeline(
-              pipeline_id, dependent_id, false);
+              pipeline_id,
+              dependent_id,
+              false,
+              can_pipelines_be_fused);
           visited_nodes[dependent_id] = true;
           DLOG(INFO) << "New pipeline for dependent " << dependent_id << std::endl;
         } else {
@@ -103,9 +111,13 @@ void DAGAnalyzer::findPipelines() {
           // pipeline.
           DLOG(INFO) << "Dependent " << dependent_id << " already visited" << std::endl;
           for (auto i : pipelines_containing_dependent) {
-            DLOG(INFO) << "Pipeline (ID="<< pipeline_id << ") containing " << operator_id << " linked with pipeline (ID=" << i << "containing " << dependent_id << std::endl;
+            DLOG(INFO) << "Pipeline (ID=" << pipeline_id << ") containing "
+                       << operator_id << " linked with pipeline (ID=" << i
+                       << "containing " << dependent_id << std::endl;
+            const bool can_pipelines_be_fused =
+                canPipelinesBeFused(pipeline_id, i);
             pipelines_[pipeline_id]->linkPipeline(
-                i, operator_id, true);
+                i, operator_id, true, can_pipelines_be_fused);
           }
         }
       } else {
@@ -115,37 +127,14 @@ void DAGAnalyzer::findPipelines() {
           pipelines_[pipeline_id]->addOperatorToPipeline(dependent_id);
           to_be_checked_nodes.emplace(dependent_id, pipeline_id);
           visited_nodes[dependent_id] = true;
-          DLOG(INFO) << "Dependent " << dependent_id << " appended to pipeline " << pipeline_id << std::endl;
+          DLOG(INFO) << "Dependent " << dependent_id << " appended to pipeline "
+                     << pipeline_id << std::endl;
         } else {
-          DLOG(INFO) << "Dependent " << dependent_id << " already visited" << std::endl;
+          DLOG(INFO) << "Dependent " << dependent_id << " already visited"
+                     << std::endl;
         }
       }
     }
-
-    // Now get the dependencies of the given node.
-    // If the dependency node and the given node belong to different pipelines
-    // then link these two pipelines.
-    /*auto dependencies = query_plan_dag_->getDependencies(operator_id);
-    bool more_than_one_dependencies = (dependencies.size() > 1u);
-    for (auto dependency : dependencies) {
-      if (!more_than_one_dependencies) {
-        // Therefore exactly one dependency.
-        if (query_plan_dag_->getLinkMetadata(dependency, operator_id)) {
-          // This is a pipeline breaker link, which means dependency and operator_id
-          // belong to different pipelines.
-        }
-      }
-      given_operator_in_new_pipeline =
-          query_plan_dag_->getLinkMetadata(dependency, operator_id);
-      if (given_operator_in_new_pipeline) {
-        // Confirm if there are more than one dependencies for operator.
-      }
-      auto pipelines_ids_containing_dependency = getPipelineID(dependency);
-      removeElementFromVector(&pipelines_ids_containing_dependency, pipeline_id);
-      for (auto curr_pipeline_id_containing_dependency :
-           pipelines_ids_containing_dependency) {
-      }
-    }*/
   }
   // Make sure that all nodes belong to some pipeline exactly once.
   DCHECK_EQ(query_plan_dag_->size(), getTotalNodes());
@@ -165,7 +154,8 @@ void DAGAnalyzer::visualizePipelines() {
   for (std::size_t id = 0; id < pipelines_.size(); ++id) {
     plotSinglePipeline(id, &pipelines_info, &edges);
   }
-  std::cout << "# nodes: " << pipelines_info.size() << " # edges: " << edges.size() << std::endl;
+  std::cout << "# nodes: " << pipelines_info.size()
+            << " # edges: " << edges.size() << std::endl;
   std::cout << visualizePipelinesHelper(pipelines_info, edges) << std::endl;
 }
 
@@ -190,6 +180,12 @@ std::string DAGAnalyzer::visualizePipelinesHelper(
   for (const EdgeInfo &edge_info : edges) {
     graph_oss << "  " << edge_info.src_node_id << " -> "
               << edge_info.dst_node_id << " [ ";
+    if (edge_info.can_be_fused) {
+      // Pipelining is allowed over this edge.
+      graph_oss << "style=filled";
+    } else {
+      graph_oss << "style=dashed";
+    }
     graph_oss << "]\n";
   }
   graph_oss << "}\n";
@@ -215,10 +211,31 @@ void DAGAnalyzer::plotSinglePipeline(
   auto neighbor_pipelines = pipelines_[pipeline_id]->getAllConnectedPipelines();
   for (const PipelineConnection &neighbor : neighbor_pipelines) {
     if (neighbor.checkPipelineIsDependent()) {
-      edges->emplace_back(pipeline_id, neighbor.getConnectedPipelineID());
+      edges->emplace_back(pipeline_id,
+                          neighbor.getConnectedPipelineID(),
+                          neighbor.canPipelinesBeFused());
     } else {
-      edges->emplace_back(neighbor.getConnectedPipelineID(), pipeline_id);
+      edges->emplace_back(neighbor.getConnectedPipelineID(),
+                          pipeline_id,
+                          neighbor.canPipelinesBeFused());
     }
+  }
+}
+
+bool DAGAnalyzer::canPipelinesBeFused(const std::size_t src_pipeline_id,
+                                      const std::size_t dst_pipeline_id) const {
+  const std::size_t src_end_operator_id =
+      pipelines_[src_pipeline_id]->getPipelineEndPoint();
+  const std::size_t dst_start_operator_id =
+      pipelines_[dst_pipeline_id]->getPipelineStartPoint();
+  if (query_plan_dag_->hasLink(src_end_operator_id, dst_start_operator_id)) {
+    const bool is_pipeline_breaker =
+        query_plan_dag_->getLinkMetadata(src_end_operator_id, dst_start_operator_id);
+    DLOG(INFO) << "Link between " << src_end_operator_id << " and " << dst_start_operator_id << " is pipeline breaker? " << is_pipeline_breaker << std::endl;
+    return !is_pipeline_breaker;
+  } else {
+    DLOG(INFO) << "No Link between " << src_end_operator_id << " and " << dst_start_operator_id << std::endl;
+    return false;
   }
 }
 
