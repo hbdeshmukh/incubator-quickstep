@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/DAGAnalyzer.hpp"
 #include "query_execution/QueryContext.hpp"
 #include "query_execution/QueryExecutionState.hpp"
 #include "query_execution/QueryManagerBase.hpp"
@@ -131,6 +132,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::unique_ptr<QueryContext> query_context_;
 
   std::unique_ptr<WorkOrdersContainer> workorders_container_;
+
+  std::unique_ptr<DAGAnalyzer> dag_analyzer_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };
