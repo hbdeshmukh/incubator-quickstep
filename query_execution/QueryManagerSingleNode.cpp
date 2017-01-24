@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "catalog/CatalogTypedefs.hpp"
-#include "query_execution/DAGAnalyzer.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
 #include "relational_operators/RebuildWorkOrder.hpp"
@@ -59,9 +58,9 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       foreman_client_id_,
                                       bus_)),
       workorders_container_(
-          new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)) {
-  DAGAnalyzer dag_analyzer(query_dag_);
-  dag_analyzer.visualizePipelines();
+          new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
+      dag_analyzer_(new DAGAnalyzer(query_dag_)) {
+  dag_analyzer_->visualizePipelines();
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
     if (checkAllBlockingDependenciesMet(index)) {
