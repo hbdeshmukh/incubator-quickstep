@@ -206,4 +206,22 @@ bool QueryManagerSingleNode::isPipelineExecutionOver(
   return true;
 }
 
+bool QueryManagerSingleNode::isPipelineSchedulable(
+    const std::size_t pipeline_id) const {
+  // First check if the pipelines has any dependencies.
+  if (!dag_analyzer_->checkPipelinehasDependenciesStatic(pipeline_id)) {
+    return true;
+  } else {
+    // Otherwise, check if all the dependencies of this pipeline have been
+    // executed.
+    auto dependencies = dag_analyzer_->getAllBlockingDependencies(pipeline_id);
+    for (auto dep : dependencies) {
+      if (!isPipelineExecutionOver(dep)) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
 }  // namespace quickstep

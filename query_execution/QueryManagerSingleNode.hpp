@@ -135,6 +135,11 @@ class QueryManagerSingleNode final : public QueryManagerBase {
    **/
   bool isPipelineExecutionOver(const std::size_t pipeline_id) const;
 
+  /**
+   * @brief Check if the pipeline can be scheduled.
+   **/
+  bool isPipelineSchedulable(const std::size_t pipeline_id) const;
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;

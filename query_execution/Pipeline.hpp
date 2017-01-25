@@ -175,6 +175,18 @@ class Pipeline {
     return result_pipelines;
   }
 
+  const std::vector<PipelineConnection> getAllBlockingDependencies() const {
+    std::vector<PipelineConnection> result_pipelines =
+        getAllConnectedPipelines();
+    result_pipelines.erase(std::remove_if(
+        result_pipelines.begin(),
+        result_pipelines.end(),
+        [](PipelineConnection pc) {
+          return !pc.checkPipelineIsDependent() && !pc.canPipelinesBeFused();
+        }));
+    return result_pipelines;
+  }
+
  private:
   std::vector<std::size_t> operators_;
 
