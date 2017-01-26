@@ -95,14 +95,18 @@ class ActivePipelinesManager {
                                            }));
   }
 
-  std::size_t getNextPipelineID() {
+  /**
+   * @return 1st element: pipeline ID, 2nd element: operator ID.
+   **/
+  std::pair<std::size_t, std::size_t> getNextPipelineAndOperatorID() {
     const std::size_t next_pipeline_id = (*next_pipeline_iter_)->getPipelineID();
+    const std::size_t next_operator_id = (*next_pipeline_iter_)->getNextOperatorID();
     if ((next_pipeline_iter_ + 1) == active_pipelines_.end()) {
       next_pipeline_iter_ = active_pipelines_.begin();
     } else {
       ++next_pipeline_iter_;
     }
-    return next_pipeline_id;
+    return std::make_pair(next_pipeline_id, next_operator_id);
   }
 
   void addPipeline(const std::size_t pipeline_id) {
@@ -114,7 +118,6 @@ class ActivePipelinesManager {
             dag_analyzer_->getAllOperatorsInPipeline(pipeline_id))));
   }
 
- private:
   bool hasPipeline(const std::size_t pipeline_id) const {
     return std::find_if(active_pipelines_.begin(),
                         active_pipelines_.end(),
@@ -123,6 +126,11 @@ class ActivePipelinesManager {
                         }) != std::end(active_pipelines_);
   }
 
+  const std::size_t getNumActivePipelines() const {
+    return active_pipelines_.size();
+  }
+
+ private:
   DAGAnalyzer *dag_analyzer_;
 
   std::vector<std::unique_ptr<ActivePipeline>> active_pipelines_;

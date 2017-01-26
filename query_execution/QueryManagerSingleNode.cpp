@@ -132,6 +132,24 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessageHelper(
 
 WorkerMessage* QueryManagerSingleNode::getNextWorkerMessagePipelineBased(
     const numa_node_id node_id) {
+  // TODO(harshad) - Try to get rid of the following call to update active
+  // pipelines and instead update the pipelines, only when really needed.
+  const std::size_t num_active_pipelines = updateActivePipelines();
+  for (std::size_t attempt_num = 0;
+       attempt_num < num_active_pipelines;
+       ++attempt_num) {
+    std::pair<std::size_t, std::size_t> next_pipe_op_pair =
+        active_pipelines_->getNextPipelineAndOperatorID();
+    WorkerMessage *next_worker_message =
+        getNextWorkerMessageHelper(next_pipe_op_pair.second, node_id);
+    if (next_worker_message != nullptr) {
+      return next_worker_message;
+    }
+  }
+  return nullptr;
+}
+
+std::size_t QueryManagerSingleNode::updateActivePipelines() {
   std::vector<std::size_t> pipeline_ids(dag_analyzer_->getNumPipelines());
   std::iota(pipeline_ids.begin(), pipeline_ids.end(), 0u);
   pipeline_ids.erase(std::remove_if(pipeline_ids.begin(),
@@ -140,16 +158,12 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessagePipelineBased(
                                       return !this->isPipelineSchedulable(
                                           pipeline_id);
                                     }));
-  for (std::size_t curr_op_index = 0u;
-       curr_op_index < pipeline_ids.size();
-       ++curr_op_index) {
-    WorkerMessage *next_worker_message =
-        getNextWorkerMessageHelper(curr_op_index, node_id);
-    if (next_worker_message != nullptr) {
-      return next_worker_message;
+  for  (std::size_t active_pipeline_id : pipeline_ids) {
+    if (!active_pipelines_->hasPipeline(active_pipeline_id)) {
+      active_pipelines_->addPipeline(active_pipeline_id);
     }
   }
-  return nullptr;
+  return active_pipelines_->getNumActivePipelines();
 }
 
 bool QueryManagerSingleNode::fetchNormalWorkOrders(const dag_node_index index) {

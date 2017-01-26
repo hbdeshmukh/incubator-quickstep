@@ -161,6 +161,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   WorkerMessage* getNextWorkerMessageHelper(
       const std::size_t operator_index, const numa_node_id numa_node);
 
+  std::size_t updateActivePipelines();
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
