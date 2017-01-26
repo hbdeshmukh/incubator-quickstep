@@ -20,6 +20,7 @@
 #ifndef QUICKSTEP_QUERY_EXECUTION_DAG_ANALYZER_HPP_
 #define QUICKSTEP_QUERY_EXECUTION_DAG_ANALYZER_HPP_
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -29,6 +30,8 @@
 #include "relational_operators/RelationalOperator.hpp"
 #include "utility/DAG.hpp"
 #include "utility/Macros.hpp"
+
+#include "glog/logging.h"
 
 namespace quickstep {
 
@@ -179,7 +182,7 @@ class DAGAnalyzer {
     return free_pipelines;
   }
 
-  const std::vector<std::size_t> getAllOperatorsInPipeline(
+  const std::vector<std::size_t>& getAllOperatorsInPipeline(
       const std::size_t pipeline_id) const {
     DCHECK_LT(pipeline_id, pipelines_.size());
     return pipelines_[pipeline_id]->getOperatorIDs();

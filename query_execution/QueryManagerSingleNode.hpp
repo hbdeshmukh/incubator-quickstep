@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/ActivePipelinesManager.hpp"
 #include "query_execution/DAGAnalyzer.hpp"
 #include "query_execution/QueryContext.hpp"
 #include "query_execution/QueryExecutionState.hpp"
@@ -89,11 +90,28 @@ class QueryManagerSingleNode final : public QueryManagerBase {
       const numa_node_id node_id = kAnyNUMANodeID);
 
   /**
+   * @brief Get the next workorder to be excuted, wrapped in a WorkerMessage.
+   *
+   * @note This method is based on pipelines, as opposed to getNextWorkerMessage
+   *       which is based on scanning all operators.
+   *
+   * @param numa_node The next WorkOrder should preferably have its input(s)
+   *        from this numa_node. This is a hint and not a binding requirement.
+   *
+   * @return A pointer to the WorkerMessage. If there's no WorkOrder to be
+   *         executed, return NULL.
+   **/
+  WorkerMessage* getNextWorkerMessagePipelineBased(
+      const numa_node_id node_id = kAnyNUMANodeID);
+
+  /**
    * @brief Get a pointer to the QueryContext.
    **/
   inline QueryContext* getQueryContextMutable() {
     return query_context_.get();
   }
+
+  void markOperatorFinished(const dag_node_index index) override;
 
  private:
   bool checkNormalExecutionOver(const dag_node_index index) const override {
@@ -140,6 +158,9 @@ class QueryManagerSingleNode final : public QueryManagerBase {
    **/
   bool isPipelineSchedulable(const std::size_t pipeline_id) const;
 
+  WorkerMessage* getNextWorkerMessageHelper(
+      const std::size_t operator_index, const numa_node_id numa_node);
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
@@ -150,6 +171,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::unique_ptr<WorkOrdersContainer> workorders_container_;
 
   std::unique_ptr<DAGAnalyzer> dag_analyzer_;
+
+  std::unique_ptr<ActivePipelinesManager> active_pipelines_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };

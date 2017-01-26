@@ -24,6 +24,7 @@ QS_PROTOBUF_GENERATE_CPP(queryexecution_QueryExecutionMessages_proto_srcs
 set_gflags_lib_name ()
 
 # Declare micro-libs:
+add_library(quickstep_queryexecution_ActivePipelinesManager ../empty_src.cpp ActivePipelinesManager.hpp)
 add_library(quickstep_queryexecution_AdmitRequestMessage ../empty_src.cpp AdmitRequestMessage.hpp)
 if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_BlockLocator BlockLocator.cpp BlockLocator.hpp)
@@ -68,6 +69,10 @@ add_library(quickstep_queryexecution_WorkerMessage ../empty_src.cpp WorkerMessag
 add_library(quickstep_queryexecution_WorkerSelectionPolicy ../empty_src.cpp WorkerSelectionPolicy.hpp)
 
 # Link dependencies:
+target_link_libraries(quickstep_queryexecution_ActivePipelinesManager
+                      glog
+                      quickstep_queryexecution_DAGAnalyzer
+                      quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_AdmitRequestMessage
                       quickstep_utility_Macros)
 if (ENABLE_DISTRIBUTED)
@@ -133,6 +138,7 @@ if (ENABLE_DISTRIBUTED)
 endif(ENABLE_DISTRIBUTED)
 target_link_libraries(quickstep_queryexecution_ForemanSingleNode
                       glog
+                      quickstep_queryexecution_ActivePipelinesManager
                       quickstep_queryexecution_AdmitRequestMessage
                       quickstep_queryexecution_ForemanBase
                       quickstep_queryexecution_PolicyEnforcerBase
@@ -366,6 +372,7 @@ target_link_libraries(quickstep_queryexecution_WorkerSelectionPolicy
 # Module all-in-one library:
 add_library(quickstep_queryexecution ../empty_src.cpp QueryExecutionModule.hpp)
 target_link_libraries(quickstep_queryexecution
+                      quickstep_queryexecution_ActivePipelinesManager
                       quickstep_queryexecution_AdmitRequestMessage
                       quickstep_queryexecution_DAGAnalyzer
                       quickstep_queryexecution_ForemanBase

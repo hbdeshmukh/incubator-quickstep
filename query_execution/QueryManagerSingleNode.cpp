@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -59,7 +60,8 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       bus_)),
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
-      dag_analyzer_(new DAGAnalyzer(query_dag_)) {
+      dag_analyzer_(new DAGAnalyzer(query_dag_)),
+      active_pipelines_(new ActivePipelinesManager(dag_analyzer_.get())) {
   dag_analyzer_->visualizePipelines();
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
@@ -73,46 +75,80 @@ QueryManagerSingleNode::QueryManagerSingleNode(
 WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
     const dag_node_index start_operator_index, const numa_node_id numa_node) {
   // Default policy: Operator with lowest index first.
-  WorkOrder *work_order = nullptr;
   size_t num_operators_checked = 0;
   for (dag_node_index index = start_operator_index;
        num_operators_checked < num_operators_in_dag_;
        index = (index + 1) % num_operators_in_dag_, ++num_operators_checked) {
-    if (query_exec_state_->hasExecutionFinished(index)) {
-      continue;
+    WorkerMessage* next_worker_message = getNextWorkerMessageHelper(index, numa_node);
+    if (next_worker_message != nullptr) {
+      return next_worker_message;
     }
+  }
+  // No WorkOrders available right now.
+  return nullptr;
+}
+
+WorkerMessage* QueryManagerSingleNode::getNextWorkerMessageHelper(
+    const std::size_t operator_index, const numa_node_id numa_node) {
+  WorkOrder *work_order = nullptr;
+  if (!query_exec_state_->hasExecutionFinished(operator_index)) {
     if (numa_node != kAnyNUMANodeID) {
       // First try to get a normal WorkOrder from the specified NUMA node.
-      work_order = workorders_container_->getNormalWorkOrderForNUMANode(index, numa_node);
+      work_order = workorders_container_->getNormalWorkOrderForNUMANode(
+          operator_index, numa_node);
       if (work_order != nullptr) {
         // A WorkOrder found on the given NUMA node.
-        query_exec_state_->incrementNumQueuedWorkOrders(index);
-        return WorkerMessage::WorkOrderMessage(work_order, index);
+        query_exec_state_->incrementNumQueuedWorkOrders(operator_index);
+        return WorkerMessage::WorkOrderMessage(work_order, operator_index);
       } else {
         // Normal workorder not found on this node. Look for a rebuild workorder
         // on this NUMA node.
-        work_order = workorders_container_->getRebuildWorkOrderForNUMANode(index, numa_node);
+        work_order = workorders_container_->getRebuildWorkOrderForNUMANode(
+            operator_index, numa_node);
         if (work_order != nullptr) {
-          return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
+          return WorkerMessage::RebuildWorkOrderMessage(work_order, operator_index);
         }
       }
     }
     // Either no workorder found on the given NUMA node, or numa_node is
     // 'kAnyNUMANodeID'.
     // Try to get a normal WorkOrder from other NUMA nodes.
-    work_order = workorders_container_->getNormalWorkOrder(index);
+    work_order = workorders_container_->getNormalWorkOrder(operator_index);
     if (work_order != nullptr) {
-      query_exec_state_->incrementNumQueuedWorkOrders(index);
-      return WorkerMessage::WorkOrderMessage(work_order, index);
+      query_exec_state_->incrementNumQueuedWorkOrders(operator_index);
+      return WorkerMessage::WorkOrderMessage(work_order, operator_index);
     } else {
       // Normal WorkOrder not found, look for a RebuildWorkOrder.
-      work_order = workorders_container_->getRebuildWorkOrder(index);
+      work_order = workorders_container_->getRebuildWorkOrder(operator_index);
       if (work_order != nullptr) {
-        return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
+        return WorkerMessage::RebuildWorkOrderMessage(work_order, operator_index);
       }
     }
   }
-  // No WorkOrders available right now.
+  // Either no WorkOrders available right now or the operator has finished its
+  // execution.
+  return nullptr;
+}
+
+WorkerMessage* QueryManagerSingleNode::getNextWorkerMessagePipelineBased(
+    const numa_node_id node_id) {
+  std::vector<std::size_t> pipeline_ids(dag_analyzer_->getNumPipelines());
+  std::iota(pipeline_ids.begin(), pipeline_ids.end(), 0u);
+  pipeline_ids.erase(std::remove_if(pipeline_ids.begin(),
+                                    pipeline_ids.end(),
+                                    [this](std::size_t pipeline_id) {
+                                      return !this->isPipelineSchedulable(
+                                          pipeline_id);
+                                    }));
+  for (std::size_t curr_op_index = 0u;
+       curr_op_index < pipeline_ids.size();
+       ++curr_op_index) {
+    WorkerMessage *next_worker_message =
+        getNextWorkerMessageHelper(curr_op_index, node_id);
+    if (next_worker_message != nullptr) {
+      return next_worker_message;
+    }
+  }
   return nullptr;
 }
 
@@ -221,6 +257,34 @@ bool QueryManagerSingleNode::isPipelineSchedulable(
       }
     }
     return true;
+  }
+}
+
+void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
+  query_exec_state_->setExecutionFinished(index);
+
+  RelationalOperator *op = query_dag_->getNodePayloadMutable(index);
+  op->updateCatalogOnCompletion();
+
+  const relation_id output_rel = op->getOutputRelationID();
+  for (const std::pair<dag_node_index, bool> &dependent_link : query_dag_->getDependents(index)) {
+    const dag_node_index dependent_op_index = dependent_link.first;
+    RelationalOperator *dependent_op = query_dag_->getNodePayloadMutable(dependent_op_index);
+    // Signal dependent operator that current operator is done feeding input blocks.
+    if (output_rel >= 0) {
+      dependent_op->doneFeedingInputBlocks(output_rel);
+    }
+    if (checkAllBlockingDependenciesMet(dependent_op_index)) {
+      dependent_op->informAllBlockingDependenciesMet();
+    }
+  }
+  // Check if the pipeline of which index is a part, has finished its execution.
+  auto pipeline_ids_containing_index = dag_analyzer_->getPipelineID(index);
+  for (std::size_t pid : pipeline_ids_containing_index) {
+    if (isPipelineExecutionOver(pid)) {
+      // Remove pipeline from active pipelines.
+      active_pipelines_->removePipeline(pid);
+    }
   }
 }
 
