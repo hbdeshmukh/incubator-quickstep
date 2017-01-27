@@ -91,11 +91,13 @@ void DAGAnalyzer::findPipelines() {
           // old pipeline.
           const bool can_pipelines_be_fused =
               canPipelinesBeFused(pipeline_id, pipelines_.size() - 1);
+          // std::cout << "For pipeline 94: " << pipeline_id << std::endl;
           pipelines_[pipeline_id]->linkPipeline(
               pipelines_.size() - 1,
               operator_id,
               true,
               can_pipelines_be_fused);
+          // std::cout << "For pipeline 100: " << pipelines_.size() - 1 << std::endl;
           pipelines_[pipelines_.size() - 1]->linkPipeline(
               pipeline_id,
               dependent_id,
@@ -116,8 +118,12 @@ void DAGAnalyzer::findPipelines() {
                        << "containing " << dependent_id << std::endl;
             const bool can_pipelines_be_fused =
                 canPipelinesBeFused(pipeline_id, i);
+            // std::cout << "For pipeline 121: " << pipeline_id << std::endl;
             pipelines_[pipeline_id]->linkPipeline(
                 i, operator_id, true, can_pipelines_be_fused);
+            // std::cout << "For pipeline 125: " << i << std::endl;
+            pipelines_[i]->linkPipeline(
+                pipeline_id, operator_id, false, can_pipelines_be_fused);
           }
         }
       } else {

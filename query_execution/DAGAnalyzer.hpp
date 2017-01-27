@@ -190,13 +190,7 @@ class DAGAnalyzer {
 
   const std::vector<std::size_t> getAllBlockingDependencies(
       const std::size_t pipeline_id) const {
-    std::vector<PipelineConnection> blocking_connections =
-        pipelines_[pipeline_id]->getAllBlockingDependencies();
-    std::vector<std::size_t> result_pipelines;
-    for (auto pc : blocking_connections) {
-      result_pipelines.emplace_back(pc.getConnectedPipelineID());
-    }
-    return result_pipelines;
+    return pipelines_[pipeline_id]->getAllBlockingDependencies();
   }
 
   void visualizePipelines();

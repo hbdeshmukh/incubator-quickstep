@@ -22,6 +22,9 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
+#include <iterator>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -50,6 +53,27 @@ class PipelineConnection {
       : connected_pipeline_id_(connected_pipeline_id),
         is_dependent_(is_dependent),
         can_be_fused_(can_pipelines_be_fused) {}
+
+  bool operator==(const PipelineConnection &pc) const {
+    return connected_pipeline_id_ == pc.connected_pipeline_id_ &&
+           is_dependent_ == pc.is_dependent_ &&
+           can_be_fused_ == pc.can_be_fused_;
+  }
+
+  friend std::ostream& operator<< (std::ostream &oss, const PipelineConnection &pc) {
+    oss << "(Pipeline: " << pc.connected_pipeline_id_;
+    if (pc.is_dependent_) {
+      oss << ", DEPENDENT, ";
+    } else {
+      oss << ", dependency, ";
+    }
+    if (pc.can_be_fused_) {
+      oss << " fusable)" << std::endl;
+    } else {
+      oss << " NOT fusable)" << std::endl;
+    }
+    return oss;
+  }
 
   std::size_t getConnectedPipelineID() const {
     return connected_pipeline_id_;
@@ -149,49 +173,49 @@ class Pipeline {
                     std::size_t connected_operator_id,
                     bool is_dependent,
                     bool can_be_fused) {
-    connected_pipelines_[connected_operator_id].emplace_back(
-        connected_pipeline_id, is_dependent, can_be_fused);
+    if (!checkConnectionExists(connected_operator_id,
+                               connected_pipeline_id,
+                               is_dependent,
+                               can_be_fused)) {
+      connected_pipelines_.emplace_back(
+          connected_pipeline_id, is_dependent, can_be_fused);
+      /*std::cout << "Inserted operator = " << connected_operator_id << " : "
+                << connected_pipelines_.back();*/
+    }/* else {
+      std::cout << "Already present operator = " << connected_operator_id << " " << PipelineConnection(connected_pipeline_id, is_dependent, can_be_fused);
+    }*/
   }
 
-  const std::vector<PipelineConnection>* getPipelinesConnectedToOperator(
-      std::size_t operator_id) const {
-    if (connected_pipelines_.find(operator_id) != connected_pipelines_.end()) {
-      return &connected_pipelines_.at(operator_id);
-    }
-    return nullptr;
+  const std::vector<PipelineConnection>& getAllConnectedPipelines() const {
+    return connected_pipelines_;
   }
 
-  const std::vector<PipelineConnection> getAllConnectedPipelines() const {
-    std::vector<PipelineConnection> result_pipelines;
-    for (auto operator_id : operators_) {
-      auto connected_pipelines_to_operator =
-          getPipelinesConnectedToOperator(operator_id);
-      if (connected_pipelines_to_operator != nullptr) {
-        result_pipelines.insert(result_pipelines.end(),
-                                connected_pipelines_to_operator->begin(),
-                                connected_pipelines_to_operator->end());
+  const std::vector<std::size_t> getAllBlockingDependencies() const {
+    std::vector<std::size_t> blocking_dependencies;
+    for (const PipelineConnection &pc : getAllConnectedPipelines()) {
+      if (!pc.checkPipelineIsDependent() && !pc.canPipelinesBeFused()) {
+        blocking_dependencies.emplace_back(pc.getConnectedPipelineID());
       }
     }
-    return result_pipelines;
-  }
-
-  const std::vector<PipelineConnection> getAllBlockingDependencies() const {
-    std::vector<PipelineConnection> result_pipelines =
-        getAllConnectedPipelines();
-    result_pipelines.erase(std::remove_if(
-        result_pipelines.begin(),
-        result_pipelines.end(),
-        [](PipelineConnection pc) {
-          return !pc.checkPipelineIsDependent() && !pc.canPipelinesBeFused();
-        }));
-    return result_pipelines;
+    return blocking_dependencies;
   }
 
  private:
+  bool checkConnectionExists(const std::size_t connected_operator_id,
+                             const std::size_t connected_pipeline_id,
+                             bool is_dependent,
+                             bool can_be_fused) const {
+    PipelineConnection pc(connected_pipeline_id, is_dependent, can_be_fused);
+    return std::find(connected_pipelines_.begin(),
+                     connected_pipelines_.end(),
+                     pc) != std::end(connected_pipelines_);
+  }
+
   std::vector<std::size_t> operators_;
 
   // Key = operator ID, value = connected pipeline to the key operator.
-  std::unordered_map<std::size_t, std::vector<PipelineConnection>> connected_pipelines_;
+  // std::unordered_map<std::size_t, std::vector<PipelineConnection>> connected_pipelines_;
+  std::vector<PipelineConnection> connected_pipelines_;
 
   DISALLOW_COPY_AND_ASSIGN(Pipeline);
 };

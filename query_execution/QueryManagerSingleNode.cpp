@@ -150,17 +150,15 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessagePipelineBased(
 }
 
 std::size_t QueryManagerSingleNode::updateActivePipelines() {
-  std::vector<std::size_t> pipeline_ids(dag_analyzer_->getNumPipelines());
-  std::iota(pipeline_ids.begin(), pipeline_ids.end(), 0u);
-  pipeline_ids.erase(std::remove_if(pipeline_ids.begin(),
-                                    pipeline_ids.end(),
-                                    [this](std::size_t pipeline_id) {
-                                      return !this->isPipelineSchedulable(
-                                          pipeline_id);
-                                    }));
-  for  (std::size_t active_pipeline_id : pipeline_ids) {
-    if (!active_pipelines_->hasPipeline(active_pipeline_id)) {
-      active_pipelines_->addPipeline(active_pipeline_id);
+  for (std::size_t curr_pipeline_id = 0;
+       curr_pipeline_id < dag_analyzer_->getNumPipelines();
+       ++curr_pipeline_id) {
+    if (isPipelineSchedulable(curr_pipeline_id) &&
+        !active_pipelines_->hasPipeline(curr_pipeline_id)) {
+      std::cout << "Adding pipeline: " << curr_pipeline_id
+                << " Active pipelines: "
+                << active_pipelines_->getNumActivePipelines() << "\n";
+      active_pipelines_->addPipeline(curr_pipeline_id);
     }
   }
   return active_pipelines_->getNumActivePipelines();
@@ -259,8 +257,8 @@ bool QueryManagerSingleNode::isPipelineExecutionOver(
 bool QueryManagerSingleNode::isPipelineSchedulable(
     const std::size_t pipeline_id) const {
   // First check if the pipelines has any dependencies.
-  if (!dag_analyzer_->checkPipelinehasDependenciesStatic(pipeline_id)) {
-    return true;
+  if (isPipelineExecutionOver(pipeline_id)) {
+    return false;
   } else {
     // Otherwise, check if all the dependencies of this pipeline have been
     // executed.
@@ -295,9 +293,10 @@ void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
   // Check if the pipeline of which index is a part, has finished its execution.
   auto pipeline_ids_containing_index = dag_analyzer_->getPipelineID(index);
   for (std::size_t pid : pipeline_ids_containing_index) {
-    if (isPipelineExecutionOver(pid)) {
+    if (isPipelineExecutionOver(pid) && active_pipelines_->hasPipeline(pid)) {
       // Remove pipeline from active pipelines.
       active_pipelines_->removePipeline(pid);
+      std::cout << "Removed pipeline: " << pid << " Active pipelines: " << active_pipelines_->getNumActivePipelines() << "\n";
     }
   }
 }

@@ -79,6 +79,7 @@ bool SortRunGenerationOperator::getAllWorkOrders(
               storage_manager),
           op_index_);
       ++num_workorders_generated_;
+      std::cout << "SortRunGen generated WO #" << num_workorders_generated_ << std::endl;
     }
     return done_feeding_input_relation_;
   }
@@ -122,6 +123,7 @@ serialization::WorkOrder* SortRunGenerationOperator::createWorkOrderProto(const 
 
 
 void SortRunGenerationWorkOrder::execute() {
+  std::cout << "SortRunGen WO executed" << std::endl;
   BlockReference block(
       storage_manager_->getBlock(input_block_id_, input_relation_));
 
