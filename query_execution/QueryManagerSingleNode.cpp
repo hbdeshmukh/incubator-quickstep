@@ -62,7 +62,6 @@ QueryManagerSingleNode::QueryManagerSingleNode(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       dag_analyzer_(new DAGAnalyzer(query_dag_)),
       active_pipelines_(new ActivePipelinesManager(dag_analyzer_.get())) {
-  dag_analyzer_->visualizePipelines();
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
     if (checkAllBlockingDependenciesMet(index)) {
@@ -138,12 +137,20 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessagePipelineBased(
   for (std::size_t attempt_num = 0;
        attempt_num < num_active_pipelines;
        ++attempt_num) {
-    std::pair<std::size_t, std::size_t> next_pipe_op_pair =
-        active_pipelines_->getNextPipelineAndOperatorID();
-    WorkerMessage *next_worker_message =
-        getNextWorkerMessageHelper(next_pipe_op_pair.second, node_id);
-    if (next_worker_message != nullptr) {
-      return next_worker_message;
+    std::size_t next_pipeline_id =
+        active_pipelines_->getNextPipelineID();
+    std::size_t num_operators_in_pipeline =
+        active_pipelines_->getNumOperatorsInPipeline(next_pipeline_id);
+    for (std::size_t curr_op_attempt = 0;
+         curr_op_attempt < num_operators_in_pipeline;
+         ++curr_op_attempt) {
+      const std::size_t next_op_index =
+          active_pipelines_->getNextOperatorID(next_pipeline_id);
+      WorkerMessage *next_worker_message =
+          getNextWorkerMessageHelper(next_op_index, node_id);
+      if (next_worker_message != nullptr) {
+        return next_worker_message;
+      }
     }
   }
   return nullptr;
@@ -155,9 +162,6 @@ std::size_t QueryManagerSingleNode::updateActivePipelines() {
        ++curr_pipeline_id) {
     if (isPipelineSchedulable(curr_pipeline_id) &&
         !active_pipelines_->hasPipeline(curr_pipeline_id)) {
-      std::cout << "Adding pipeline: " << curr_pipeline_id
-                << " Active pipelines: "
-                << active_pipelines_->getNumActivePipelines() << "\n";
       active_pipelines_->addPipeline(curr_pipeline_id);
     }
   }
@@ -296,7 +300,6 @@ void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
     if (isPipelineExecutionOver(pid) && active_pipelines_->hasPipeline(pid)) {
       // Remove pipeline from active pipelines.
       active_pipelines_->removePipeline(pid);
-      std::cout << "Removed pipeline: " << pid << " Active pipelines: " << active_pipelines_->getNumActivePipelines() << "\n";
     }
   }
 }

@@ -63,6 +63,10 @@ class ActivePipeline {
     return next_operator_id;
   }
 
+  const std::size_t getNumOperators() const {
+    return operators_in_pipeline_.size();
+  }
+
 private:
   // TODO(harshad) - Allow the ability to mark operators as done, so that we
   // don't repeatedly assign them as the next operator ID and subsequently they
@@ -101,19 +105,35 @@ class ActivePipelinesManager {
   }
 
   /**
-   * @return 1st element: pipeline ID, 2nd element: operator ID.
+   * @return Next pipeline ID.
    **/
-  std::pair<std::size_t, std::size_t> getNextPipelineAndOperatorID() {
+  std::size_t getNextPipelineID() {
     DCHECK(active_pipelines_.end() != next_pipeline_iter_);
     DCHECK(*next_pipeline_iter_ != nullptr);
     const std::size_t next_pipeline_id = (*next_pipeline_iter_)->getPipelineID();
-    const std::size_t next_operator_id = (*next_pipeline_iter_)->getNextOperatorID();
     if ((next_pipeline_iter_ + 1) == active_pipelines_.end()) {
       next_pipeline_iter_ = active_pipelines_.begin();
     } else {
       ++next_pipeline_iter_;
     }
-    return std::make_pair(next_pipeline_id, next_operator_id);
+    return next_pipeline_id ;
+  }
+
+  /**
+   * @return Next operator ID from the current pipeline.
+   *
+   * @note This is a stateful function.
+   **/
+  std::size_t getNextOperatorID(const std::size_t pipeline_id) {
+    DCHECK(active_pipelines_.end() != next_pipeline_iter_);
+    DCHECK(*next_pipeline_iter_ != nullptr);
+    auto it = std::find_if(active_pipelines_.begin(),
+                        active_pipelines_.end(),
+                        [&](std::unique_ptr<ActivePipeline> const& ap) {
+                          return ap.get()->getPipelineID() == pipeline_id;
+                        });
+    DCHECK(it != std::end(active_pipelines_));
+    return (*it)->getNextOperatorID();
   }
 
   void addPipeline(const std::size_t pipeline_id) {
@@ -137,6 +157,24 @@ class ActivePipelinesManager {
 
   const std::size_t getNumActivePipelines() const {
     return active_pipelines_.size();
+  }
+
+  const std::size_t getNumOperatorsInPipeline(
+      const std::size_t pipeline_id) const {
+    auto it = std::find_if(active_pipelines_.begin(),
+                           active_pipelines_.end(),
+                           [&](std::unique_ptr<ActivePipeline> const &ap) {
+                             return ap.get()->getPipelineID() == pipeline_id;
+                           });
+    DCHECK(it != std::end(active_pipelines_));
+    return (*it)->getNumOperators();
+  }
+
+  void printActivePipelineIDs() {
+    for (std::size_t i = 0; i < active_pipelines_.size(); ++i) {
+      std::cout << active_pipelines_[i]->getPipelineID() << " ";
+    }
+    std::cout << std::endl;
   }
 
  private:

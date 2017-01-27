@@ -164,7 +164,6 @@ class RelationalOperator {
    *       specified relation.
    **/
   virtual void doneFeedingInputBlocks(const relation_id rel_id) {
-    std::cout  << "Done feeding input block Op: " << op_index_ << " relation: " << rel_id << std::endl;
     done_feeding_input_relation_ = true;
   }
 
