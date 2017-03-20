@@ -306,6 +306,7 @@ SimpleScalarSeparateChainingHashTable<ValueT,
                                 + num_slots_tmp * sizeof(std::atomic<std::size_t>)
                                 + (num_slots_tmp / kHashTableLoadFactor) * sizeof(Bucket);
   std::size_t num_storage_slots = this->storage_manager_->SlotsNeededForBytes(required_memory);
+  std::cout << static_cast<float>(required_memory)/(1024 * 1024) << " MB\n";
   if (num_storage_slots == 0) {
     LOG(FATAL)
         << "Storage requirement for SimpleScalarSeparateChainingHashTable "
