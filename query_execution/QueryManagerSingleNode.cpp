@@ -34,6 +34,7 @@
 #include "storage/StorageBlock.hpp"
 #include "utility/DAG.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 #include "tmb/id_typedefs.h"
@@ -41,6 +42,10 @@
 namespace quickstep {
 
 class WorkOrder;
+
+DEFINE_bool(print_pipelines,
+            false,
+            "Visualize the query plans as set of connected pipelines");
 
 QueryManagerSingleNode::QueryManagerSingleNode(
     const tmb::client_id foreman_client_id,
@@ -62,6 +67,9 @@ QueryManagerSingleNode::QueryManagerSingleNode(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       dag_analyzer_(new DAGAnalyzer(query_dag_)),
       active_pipelines_(new ActivePipelinesManager(dag_analyzer_.get())) {
+  if (FLAGS_print_pipelines) {
+    dag_analyzer_->visualizePipelines();
+  }
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
     if (checkAllBlockingDependenciesMet(index)) {

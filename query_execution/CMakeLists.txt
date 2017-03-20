@@ -298,6 +298,7 @@ if (ENABLE_DISTRIBUTED)
                         tmb)
 endif(ENABLE_DISTRIBUTED)
 target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
+                      ${GFLAGS_LIB_NAME}
                       quickstep_catalog_CatalogTypedefs
                       quickstep_queryexecution_DAGAnalyzer
                       quickstep_queryexecution_QueryContext

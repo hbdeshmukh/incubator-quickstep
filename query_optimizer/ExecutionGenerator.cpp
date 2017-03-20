@@ -176,7 +176,7 @@ void ExecutionGenerator::generatePlan(const P::PhysicalPtr &physical_plan) {
   cost_model_for_aggregation_.reset(
       new cost::StarSchemaSimpleCostModel(top_level_physical_plan_->shared_subplans()));
   cost_model_for_hash_join_.reset(
-      new cost::SimpleCostModel(top_level_physical_plan_->shared_subplans()));
+      new cost::StarSchemaSimpleCostModel(top_level_physical_plan_->shared_subplans()));
 
   const auto &lip_filter_configuration =
       top_level_physical_plan_->lip_filter_configuration();
