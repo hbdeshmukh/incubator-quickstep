@@ -32,6 +32,7 @@
 #include "storage/PackedPayloadHashTable.hpp"
 #include "storage/SeparateChainingHashTable.hpp"
 #include "storage/SimpleScalarSeparateChainingHashTable.hpp"
+#include "storage/StorageConstants.hpp"
 #include "storage/TupleReference.hpp"
 #include "types/TypeFactory.hpp"
 #include "utility/BloomFilter.hpp"
@@ -153,6 +154,7 @@ class HashTableFactory {
    *        key). Forwarded as-is to the HashTable's constructor.
    * @param num_entries The estimated number of entries the HashTable will
    *        hold. Forwarded as-is to the HashTable's constructor.
+   * @param load_factor The load factor to be used in the hash table.
    * @param storage_manager The StorageManager to use (a StorageBlob will be
    *        allocated to hold the HashTable's contents). Forwarded as-is to the
    *        HashTable's constructor.
@@ -162,31 +164,32 @@ class HashTableFactory {
       CreateResizable(const HashTableImplType hash_table_type,
                       const std::vector<const Type*> &key_types,
                       const std::size_t num_entries,
+                      const double load_factor,
                       StorageManager *storage_manager) {
     DCHECK(resizable);
 
     switch (hash_table_type) {
       case HashTableImplType::kLinearOpenAddressing:
-        return new LinearOpenAddressingHashTable<
-            ValueT,
-            resizable,
-            serializable,
-            force_key_copy,
-            allow_duplicate_keys>(key_types, num_entries, storage_manager);
+        return new LinearOpenAddressingHashTable<ValueT,
+                                                 resizable,
+                                                 serializable,
+                                                 force_key_copy,
+                                                 allow_duplicate_keys>(
+            key_types, num_entries, load_factor, storage_manager);
       case HashTableImplType::kSeparateChaining:
-        return new SeparateChainingHashTable<
-            ValueT,
-            resizable,
-            serializable,
-            force_key_copy,
-            allow_duplicate_keys>(key_types, num_entries, storage_manager);
+        return new SeparateChainingHashTable<ValueT,
+                                             resizable,
+                                             serializable,
+                                             force_key_copy,
+                                             allow_duplicate_keys>(
+            key_types, num_entries, load_factor, storage_manager);
       case HashTableImplType::kSimpleScalarSeparateChaining:
-        return new SimpleScalarSeparateChainingHashTable<
-            ValueT,
-            resizable,
-            serializable,
-            force_key_copy,
-            allow_duplicate_keys>(key_types, num_entries, storage_manager);
+        return new SimpleScalarSeparateChainingHashTable<ValueT,
+                                                         resizable,
+                                                         serializable,
+                                                         force_key_copy,
+                                                         allow_duplicate_keys>(
+            key_types, num_entries, load_factor, storage_manager);
       default: {
         LOG(FATAL) << "Unrecognized HashTableImplType in HashTableFactory::createResizable()\n";
       }
@@ -313,9 +316,14 @@ class HashTableFactory {
       key_types.emplace_back(&TypeFactory::ReconstructFromProto(proto.key_types(i)));
     }
 
+    double load_factor = kHashTableLoadFactor;
+    if (proto.has_load_factor()) {
+      load_factor = proto.load_factor();
+    }
     auto hash_table = CreateResizable(HashTableImplTypeFromProto(proto.hash_table_impl_type()),
                                       key_types,
                                       proto.estimated_num_entries(),
+                                      load_factor,
                                       storage_manager);
     return hash_table;
   }

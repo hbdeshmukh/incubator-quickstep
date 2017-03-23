@@ -65,33 +65,41 @@ class SeparateChainingHashTable : public HashTable<ValueT,
  public:
   SeparateChainingHashTable(const std::vector<const Type*> &key_types,
                             const std::size_t num_entries,
+                            const double load_factor,
                             StorageManager *storage_manager);
 
   SeparateChainingHashTable(const std::vector<const Type*> &key_types,
                             void *hash_table_memory,
                             const std::size_t hash_table_memory_size,
+                            const double load_factor,
                             const bool new_hash_table,
                             const bool hash_table_memory_zeroed);
 
   // Delegating constructors for single scalar keys.
   SeparateChainingHashTable(const Type &key_type,
                             const std::size_t num_entries,
+                            const double load_factor,
                             StorageManager *storage_manager)
       : SeparateChainingHashTable(std::vector<const Type*>(1, &key_type),
                                   num_entries,
+                                  load_factor,
                                   storage_manager) {
+    DCHECK_LT(0.0, load_factor);
   }
 
   SeparateChainingHashTable(const Type &key_type,
                             void *hash_table_memory,
                             const std::size_t hash_table_memory_size,
+                            const double load_factor,
                             const bool new_hash_table,
                             const bool hash_table_memory_zeroed)
       : SeparateChainingHashTable(std::vector<const Type*>(1, &key_type),
                                   hash_table_memory,
                                   hash_table_memory_size,
+                                  load_factor,
                                   new_hash_table,
                                   hash_table_memory_zeroed) {
+    DCHECK_LT(0.0, load_factor);
   }
 
   ~SeparateChainingHashTable() override {
@@ -291,6 +299,7 @@ template <typename ValueT,
 SeparateChainingHashTable<ValueT, resizable, serializable, force_key_copy, allow_duplicate_keys>
     ::SeparateChainingHashTable(const std::vector<const Type*> &key_types,
                                 const std::size_t num_entries,
+                                const double load_factor,
                                 StorageManager *storage_manager)
         : HashTable<ValueT, resizable, serializable, force_key_copy, allow_duplicate_keys>(
               key_types,
@@ -301,15 +310,16 @@ SeparateChainingHashTable<ValueT, resizable, serializable, force_key_copy, allow
               true),
           key_manager_(this->key_types_, kValueOffset + sizeof(ValueT)),
           bucket_size_(ComputeBucketSize(key_manager_.getFixedKeySize())) {
+  DCHECK_LT(0.0, load_factor);
   // Give base HashTable information about what key components are stored
   // inline from 'key_manager_'.
   this->setKeyInline(key_manager_.getKeyInline());
 
   // Pick out a prime number of slots and calculate storage requirements.
-  std::size_t num_slots_tmp = get_next_prime_number(num_entries * kHashTableLoadFactor);
+  std::size_t num_slots_tmp = get_next_prime_number(num_entries * load_factor);
   std::size_t required_memory = sizeof(Header)
                                 + num_slots_tmp * sizeof(std::atomic<std::size_t>)
-                                + (num_slots_tmp / kHashTableLoadFactor)
+                                + (num_slots_tmp / load_factor)
                                     * (bucket_size_ + key_manager_.getEstimatedVariableKeySize());
   std::size_t num_storage_slots = this->storage_manager_->SlotsNeededForBytes(required_memory);
   if (num_storage_slots == 0) {
@@ -354,11 +364,11 @@ SeparateChainingHashTable<ValueT, resizable, serializable, force_key_copy, allow
   // will wind up with fewer buckets than we initially wanted because of screwy
   // alignment requirements for ValueT.
   std::size_t num_buckets_tmp
-      = available_memory / (kHashTableLoadFactor * sizeof(std::atomic<std::size_t>)
+      = available_memory / (load_factor * sizeof(std::atomic<std::size_t>)
                             + bucket_size_
                             + key_manager_.getEstimatedVariableKeySize());
-  num_slots_tmp = get_previous_prime_number(num_buckets_tmp * kHashTableLoadFactor);
-  num_buckets_tmp = num_slots_tmp / kHashTableLoadFactor;
+  num_slots_tmp = get_previous_prime_number(num_buckets_tmp * load_factor);
+  num_buckets_tmp = num_slots_tmp / load_factor;
   DEBUG_ASSERT(num_slots_tmp > 0);
   DEBUG_ASSERT(num_buckets_tmp > 0);
 
@@ -413,6 +423,7 @@ SeparateChainingHashTable<ValueT, resizable, serializable, force_key_copy, allow
     ::SeparateChainingHashTable(const std::vector<const Type*> &key_types,
                                 void *hash_table_memory,
                                 const std::size_t hash_table_memory_size,
+                                const double load_factor,
                                 const bool new_hash_table,
                                 const bool hash_table_memory_zeroed)
         : HashTable<ValueT, resizable, serializable, force_key_copy, allow_duplicate_keys>(
@@ -426,6 +437,7 @@ SeparateChainingHashTable<ValueT, resizable, serializable, force_key_copy, allow
               true),
           key_manager_(this->key_types_, kValueOffset + sizeof(ValueT)),
           bucket_size_(ComputeBucketSize(key_manager_.getFixedKeySize())) {
+  DCHECK_LT(0.0, load_factor);
   // Give base HashTable information about what key components are stored
   // inline from 'key_manager_'.
   this->setKeyInline(key_manager_.getKeyInline());
@@ -468,14 +480,14 @@ SeparateChainingHashTable<ValueT, resizable, serializable, force_key_copy, allow
 
   if (new_hash_table) {
     std::size_t estimated_bucket_capacity
-        = available_memory / (kHashTableLoadFactor * sizeof(std::atomic<std::size_t>)
+        = available_memory / (load_factor * sizeof(std::atomic<std::size_t>)
                               + bucket_size_
                               + key_manager_.getEstimatedVariableKeySize());
-    std::size_t num_slots = get_previous_prime_number(estimated_bucket_capacity * kHashTableLoadFactor);
+    std::size_t num_slots = get_previous_prime_number(estimated_bucket_capacity * load_factor);
 
     // Fill in the header.
     header_->num_slots = num_slots;
-    header_->num_buckets = num_slots / kHashTableLoadFactor;
+    header_->num_buckets = num_slots / load_factor;
     header_->buckets_allocated.store(0, std::memory_order_relaxed);
     header_->variable_length_bytes_allocated.store(0, std::memory_order_relaxed);
   }

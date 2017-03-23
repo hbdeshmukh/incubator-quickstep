@@ -127,6 +127,7 @@
 #include "storage/InsertDestination.pb.h"
 #include "storage/StorageBlockLayout.hpp"
 #include "storage/StorageBlockLayout.pb.h"
+#include "storage/StorageConstants.hpp"
 #include "storage/SubBlockTypeRegistry.hpp"
 #include "types/Type.hpp"
 #include "types/Type.pb.h"
@@ -813,6 +814,9 @@ void ExecutionGenerator::convertHashJoin(const P::HashJoinPtr &physical_plan) {
   }
 
   hash_table_proto->set_estimated_num_entries(build_cardinality);
+
+  hash_table_proto->set_load_factor(
+      build_relation_info->isStoredRelation() ? 1.0 : kHashTableLoadFactor);
 
   // Create three operators.
   const QueryPlan::DAGNodeIndex build_operator_index =

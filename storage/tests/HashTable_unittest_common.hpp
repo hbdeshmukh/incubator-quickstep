@@ -345,6 +345,7 @@ class HashTableTest : public ::testing::Test {
                                 const std::size_t num_entries) {
     hash_table_.reset(new HashTableImpl(key_types,
                                         num_entries,
+                                        kHashTableLoadFactor,
                                         storage_manager_.get()));
   }
 
@@ -357,6 +358,7 @@ class HashTableTest : public ::testing::Test {
         key_types,
         static_cast<char*>(memory_buffer_->get()) + offset_in_buffer,
         buffer_size - offset_in_buffer,
+        kHashTableLoadFactor,
         true,
         false));
   }
@@ -902,6 +904,7 @@ class HashTableTest : public ::testing::Test {
         key_types,
         static_cast<char*>(moved_buffer.get()) + kNumSampleKeys * key_types.front()->maximumByteLength(),
         buffer_size - kNumSampleKeys * key_types.front()->maximumByteLength(),
+        kHashTableLoadFactor,
         false,
         false));
 
@@ -1213,6 +1216,7 @@ class NonTriviallyDestructibleValueHashTableTest : public ::testing::Test {
                                 const std::size_t num_entries) {
     hash_table_.reset(new HashTableImpl(key_types,
                                         num_entries,
+                                        kHashTableLoadFactor,
                                         storage_manager_.get()));
   }
 
@@ -1225,6 +1229,7 @@ class NonTriviallyDestructibleValueHashTableTest : public ::testing::Test {
         key_types,
         static_cast<char*>(memory_buffer_->get()) + offset_in_buffer,
         buffer_size - offset_in_buffer,
+        kHashTableLoadFactor,
         true,
         false));
   }
@@ -1964,6 +1969,7 @@ TYPED_TEST_P(FixedSizeSerializableHashTableTest, CompositeKeySerializationTest) 
       key_types,
       static_cast<char*>(moved_buffer.get()) + kNumSampleKeys * maximum_key_size,
       buffer_size - kNumSampleKeys * maximum_key_size,
+      kHashTableLoadFactor,
       false,
       false));
 

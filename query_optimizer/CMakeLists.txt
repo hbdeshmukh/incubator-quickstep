@@ -146,6 +146,7 @@ target_link_libraries(quickstep_queryoptimizer_ExecutionGenerator
                       quickstep_storage_InsertDestination_proto
                       quickstep_storage_StorageBlockLayout
                       quickstep_storage_StorageBlockLayout_proto
+                      quickstep_storage_StorageConstants
                       quickstep_storage_SubBlockTypeRegistry
                       quickstep_types_Type
                       quickstep_types_Type_proto

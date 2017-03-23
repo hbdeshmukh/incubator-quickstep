@@ -35,4 +35,5 @@ message HashTable {
   required HashTableImplType hash_table_impl_type = 1;
   repeated Type key_types = 2;
   required uint64 estimated_num_entries = 3;
+  optional double load_factor = 4;
 }

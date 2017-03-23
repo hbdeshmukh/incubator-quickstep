@@ -73,26 +73,31 @@ class LinearOpenAddressingHashTable : public HashTable<ValueT,
 
   LinearOpenAddressingHashTable(const std::vector<const Type*> &key_types,
                                 const std::size_t num_entries,
+                                const double load_factor,
                                 StorageManager *storage_manager);
 
   LinearOpenAddressingHashTable(const std::vector<const Type*> &key_types,
                                 void *hash_table_memory,
                                 const std::size_t hash_table_memory_size,
+                                const double load_factor,
                                 const bool new_hash_table,
                                 const bool hash_table_memory_zeroed);
 
   // Delegating constructors for single scalar keys.
   LinearOpenAddressingHashTable(const Type &key_type,
                                 const std::size_t num_entries,
+                                const double load_factor,
                                 StorageManager *storage_manager)
       : LinearOpenAddressingHashTable(std::vector<const Type*>(1, &key_type),
                                       num_entries,
                                       storage_manager) {
+    DCHECK_LT(0.0, load_factor);
   }
 
   LinearOpenAddressingHashTable(const Type &key_type,
                                 void *hash_table_memory,
                                 const std::size_t hash_table_memory_size,
+                                const double load_factor,
                                 const bool new_hash_table,
                                 const bool hash_table_memory_zeroed)
       : LinearOpenAddressingHashTable(std::vector<const Type*>(1, &key_type),
@@ -100,6 +105,7 @@ class LinearOpenAddressingHashTable : public HashTable<ValueT,
                                       hash_table_memory_size,
                                       new_hash_table,
                                       hash_table_memory_zeroed) {
+    DCHECK_LT(0.0, load_factor);
   }
 
   ~LinearOpenAddressingHashTable() override {
@@ -287,6 +293,7 @@ template <typename ValueT,
 LinearOpenAddressingHashTable<ValueT, resizable, serializable, force_key_copy, allow_duplicate_keys>
     ::LinearOpenAddressingHashTable(const std::vector<const Type*> &key_types,
                                     const std::size_t num_entries,
+                                    const double load_factor,
                                     StorageManager *storage_manager)
         : HashTable<ValueT, resizable, serializable, force_key_copy, allow_duplicate_keys>(
               key_types,
@@ -297,12 +304,13 @@ LinearOpenAddressingHashTable<ValueT, resizable, serializable, force_key_copy, a
               false),
           key_manager_(this->key_types_, kValueOffset + sizeof(ValueT)),
           bucket_size_(ComputeBucketSize(key_manager_.getFixedKeySize())) {
+  DCHECK_LT(0.0, load_factor);
   // Give base HashTable information about what key components are stored
   // inline from 'key_manager_'.
   this->setKeyInline(key_manager_.getKeyInline());
 
   // Pick out a prime number of buckets and calculate storage requirements.
-  std::size_t num_buckets_tmp = get_next_prime_number(num_entries * kHashTableLoadFactor);
+  std::size_t num_buckets_tmp = get_next_prime_number(num_entries * load_factor);
   std::size_t required_memory = sizeof(Header)
                                 + (num_buckets_tmp + kLinearOpenAddressingHashTableNumOverflowBuckets)
                                     * (bucket_size_ + key_manager_.getEstimatedVariableKeySize());
@@ -405,6 +413,7 @@ LinearOpenAddressingHashTable<ValueT, resizable, serializable, force_key_copy, a
     ::LinearOpenAddressingHashTable(const std::vector<const Type*> &key_types,
                                     void *hash_table_memory,
                                     const std::size_t hash_table_memory_size,
+                                    const double load_factor,
                                     const bool new_hash_table,
                                     const bool hash_table_memory_zeroed)
         : HashTable<ValueT, resizable, serializable, force_key_copy, allow_duplicate_keys>(
@@ -418,6 +427,7 @@ LinearOpenAddressingHashTable<ValueT, resizable, serializable, force_key_copy, a
               false),
           key_manager_(this->key_types_, kValueOffset + sizeof(ValueT)),
           bucket_size_(ComputeBucketSize(key_manager_.getFixedKeySize())) {
+  DCHECK_LT(0.0, load_factor);
   // Give base HashTable information about what key components are stored
   // inline from 'key_manager_'.
   this->setKeyInline(key_manager_.getKeyInline());
