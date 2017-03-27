@@ -22,6 +22,8 @@
 
 #include <cstddef>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "catalog/CatalogTypedefs.hpp"
 #include "query_execution/QueryContext.hpp"
@@ -123,6 +125,11 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   void getRebuildWorkOrders(const dag_node_index index,
                             WorkOrdersContainer *container);
 
+  std::pair<WorkerMessage *, std::size_t> getNextWorkerMessageFromSet(
+      const std::size_t start_index,
+      const std::vector<dag_node_index> &operators_set,
+      const numa_node_id numa_node) const;
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
@@ -131,6 +138,15 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::unique_ptr<QueryContext> query_context_;
 
   std::unique_ptr<WorkOrdersContainer> workorders_container_;
+
+  // The set of operators which are being acted upon at this point.
+  std::vector<dag_node_index> working_set_operators_;
+
+  // The set of operators waiting for scheduling their work orders.
+  std::vector<dag_node_index> waiting_set_operators_;
+
+  std::size_t next_working_operator_id_index_;
+  std::size_t next_waiting_operator_id_index_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };
