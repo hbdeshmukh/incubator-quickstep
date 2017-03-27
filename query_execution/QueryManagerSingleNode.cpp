@@ -61,13 +61,16 @@ QueryManagerSingleNode::QueryManagerSingleNode(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       next_working_operator_id_index_(0),
       next_waiting_operator_id_index_(0) {
-  for (dag_node_index i = 0; i < num_operators_in_dag_; ++i) {
+  /*for (dag_node_index i = 0; i < num_operators_in_dag_; ++i) {
     working_set_operators_.emplace_back(i);
-  }
+  }*/
+  working_set_operators_.emplace_back(1);
+  working_set_operators_.emplace_back(0);
+  working_set_operators_.emplace_back(16);
   for (dag_node_index i = 0; i < num_operators_in_dag_; ++i) {
     if (std::find(std::begin(working_set_operators_),
                   std::end(working_set_operators_),
-                  i) != std::end(working_set_operators_)) {
+                  i) == std::end(working_set_operators_)) {
       waiting_set_operators_.emplace_back(i);
     }
   }
