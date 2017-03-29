@@ -19,6 +19,7 @@
 
 #include "query_execution/QueryManagerSingleNode.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <utility>
@@ -61,6 +62,10 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
+  // Populate the active operators list.
+  for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
+    waiting_operators_.emplace_back(index);
+  }
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
     if (checkAllBlockingDependenciesMet(index)) {
@@ -70,11 +75,48 @@ QueryManagerSingleNode::QueryManagerSingleNode(
   }
 }
 
+std::pair<QueryManagerBase::dag_node_index, int>
+QueryManagerSingleNode::getHighestWaitingOperator() {
+  if (!waiting_operators_.empty()) {
+    auto it = std::max_element(
+        waiting_operators_.begin(),
+        waiting_operators_.end(),
+        [this](const dag_node_index a, const dag_node_index b) {
+          return compareOperatorsUsingRemainingWork(a, b);
+        });
+    DCHECK(it != waiting_operators_.end());
+    return std::make_pair(*it,
+                          workorders_container_->getNumTotalWorkOrders(*it));
+  }
+  return std::make_pair(0, -1);
+}
+
+std::pair<QueryManagerBase::dag_node_index, int>
+QueryManagerSingleNode::getLowestWaitingOperator() {
+  if (!waiting_operators_.empty()) {
+    auto it = std::min_element(
+        waiting_operators_.begin(),
+        waiting_operators_.end(),
+        [this](const dag_node_index a, const dag_node_index b) {
+          return compareOperatorsUsingRemainingWork(a, b);
+        });
+    DCHECK(it != waiting_operators_.end());
+    return std::make_pair(*it,
+                          workorders_container_->getNumTotalWorkOrders(*it));
+  }
+  return std::make_pair(0, -1);
+}
+
 WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
     const dag_node_index start_operator_index, const numa_node_id numa_node) {
   // Default policy: Operator with lowest index first.
   WorkOrder *work_order = nullptr;
   size_t num_operators_checked = 0;
+  std::cout << "Highest waiting op index: " << getHighestWaitingOperator().first
+            << " pending: " << getHighestWaitingOperator().second << std::endl;
+  std::cout << "Loweset waiting op index: " << getLowestWaitingOperator().first
+            << " pending: " << getLowestWaitingOperator().second << std::endl;
+  printPendingWork();
   for (dag_node_index index = start_operator_index;
        num_operators_checked < num_operators_in_dag_;
        index = (index + 1) % num_operators_in_dag_, ++num_operators_checked) {
@@ -215,6 +257,52 @@ std::size_t QueryManagerSingleNode::getTotalTempRelationMemoryInBytes() const {
     }
   }
   return memory;
+}
+
+void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
+  active_operators_.erase(
+      std::remove(active_operators_.begin(), active_operators_.end(), index),
+      active_operators_.end());
+  query_exec_state_->setExecutionFinished(index);
+
+  RelationalOperator *op = query_dag_->getNodePayloadMutable(index);
+  op->updateCatalogOnCompletion();
+
+  const relation_id output_rel = op->getOutputRelationID();
+  for (const std::pair<dag_node_index, bool> &dependent_link : query_dag_->getDependents(index)) {
+    const dag_node_index dependent_op_index = dependent_link.first;
+    RelationalOperator *dependent_op = query_dag_->getNodePayloadMutable(dependent_op_index);
+    // Signal dependent operator that current operator is done feeding input blocks.
+    if (output_rel >= 0) {
+      dependent_op->doneFeedingInputBlocks(output_rel);
+    }
+    if (checkAllBlockingDependenciesMet(dependent_op_index)) {
+      dependent_op->informAllBlockingDependenciesMet();
+    }
+  }
+}
+
+bool QueryManagerSingleNode::compareOperatorsUsingRemainingWork(
+    dag_node_index a, dag_node_index b) const {
+  const std::size_t a_total_wo =
+      workorders_container_->getNumTotalWorkOrders(a);
+  const std::size_t b_total_wo =
+      workorders_container_->getNumTotalWorkOrders(b);
+  if (a_total_wo < b_total_wo) {
+    return true;
+  } else if (a_total_wo == b_total_wo) {
+    // Break ties by declaring operator with higher index as higher.
+    return a < b;
+  } else {
+    return false;
+  }
+}
+
+void QueryManagerSingleNode::printPendingWork() const {
+  for (auto i : waiting_operators_) {
+    std::cout << i << ":" << workorders_container_->getNumTotalWorkOrders(i) << " ";
+  }
+  std::cout << std::endl;
 }
 
 }  // namespace quickstep

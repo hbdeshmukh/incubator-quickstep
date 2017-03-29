@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 #include "catalog/CatalogTypedefs.hpp"
 #include "query_execution/QueryContext.hpp"
@@ -98,6 +99,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::size_t getQueryMemoryConsumptionBytes() const override;
 
  private:
+  static constexpr std::size_t kMaxActiveOperators = 1;
+
   bool checkNormalExecutionOver(const dag_node_index index) const override {
     return (checkAllDependenciesMet(index) &&
             !workorders_container_->hasNormalWorkOrder(index) &&
@@ -132,6 +135,16 @@ class QueryManagerSingleNode final : public QueryManagerBase {
    **/
   std::size_t getTotalTempRelationMemoryInBytes() const;
 
+  void markOperatorFinished(const dag_node_index index) override;
+
+  bool compareOperatorsUsingRemainingWork(dag_node_index a, dag_node_index b) const;
+
+  std::pair<dag_node_index, int> getHighestWaitingOperator();
+
+  std::pair<dag_node_index, int> getLowestWaitingOperator();
+
+  void printPendingWork() const;
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
@@ -142,6 +155,10 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::unique_ptr<WorkOrdersContainer> workorders_container_;
 
   const CatalogDatabase &database_;
+
+  std::vector<dag_node_index> waiting_operators_;
+
+  std::vector<dag_node_index> active_operators_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };
