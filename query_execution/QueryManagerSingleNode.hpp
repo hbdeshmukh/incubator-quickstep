@@ -141,7 +141,7 @@ class QueryManagerSingleNode final : public QueryManagerBase {
 
   std::pair<dag_node_index, int> getHighestWaitingOperator();
 
-  std::pair<dag_node_index, int> getLowestWaitingOperator();
+  std::pair<dag_node_index, int> getLowestWaitingOperatorNonZeroWork();
 
   void printPendingWork() const;
 

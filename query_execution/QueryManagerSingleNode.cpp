@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -92,19 +93,22 @@ QueryManagerSingleNode::getHighestWaitingOperator() {
 }
 
 std::pair<QueryManagerBase::dag_node_index, int>
-QueryManagerSingleNode::getLowestWaitingOperator() {
-  if (!waiting_operators_.empty()) {
-    auto it = std::min_element(
-        waiting_operators_.begin(),
-        waiting_operators_.end(),
-        [this](const dag_node_index a, const dag_node_index b) {
-          return compareOperatorsUsingRemainingWork(a, b);
-        });
-    DCHECK(it != waiting_operators_.end());
-    return std::make_pair(*it,
-                          workorders_container_->getNumTotalWorkOrders(*it));
+QueryManagerSingleNode::getLowestWaitingOperatorNonZeroWork() {
+  std::vector<dag_node_index> operators_with_work;
+  int min_work = INT_MAX;
+  std::size_t min_work_op_index = 0;
+  for (auto op_id : waiting_operators_) {
+    const int curr_op_pending_work =
+        workorders_container_->getNumTotalWorkOrders(op_id);
+    if (curr_op_pending_work < min_work && curr_op_pending_work > 0) {
+      min_work = curr_op_pending_work;
+      min_work_op_index = op_id;
+    }
   }
-  return std::make_pair(0, -1);
+  if (min_work == INT_MAX) {
+    min_work = -1;
+  }
+  return std::make_pair(min_work_op_index, min_work);
 }
 
 WorkerMessage* QueryManagerSingleNode::getWorkerMessageFromOperator(
