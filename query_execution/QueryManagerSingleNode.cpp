@@ -107,55 +107,86 @@ QueryManagerSingleNode::getLowestWaitingOperator() {
   return std::make_pair(0, -1);
 }
 
-WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
-    const dag_node_index start_operator_index, const numa_node_id numa_node) {
-  // Default policy: Operator with lowest index first.
+WorkerMessage* QueryManagerSingleNode::getWorkerMessageFromOperator(
+    const dag_node_index index, const numa_node_id numa_node) {
   WorkOrder *work_order = nullptr;
-  size_t num_operators_checked = 0;
-  std::cout << "Highest waiting op index: " << getHighestWaitingOperator().first
-            << " pending: " << getHighestWaitingOperator().second << std::endl;
-  std::cout << "Loweset waiting op index: " << getLowestWaitingOperator().first
-            << " pending: " << getLowestWaitingOperator().second << std::endl;
-  printPendingWork();
-  for (dag_node_index index = start_operator_index;
-       num_operators_checked < num_operators_in_dag_;
-       index = (index + 1) % num_operators_in_dag_, ++num_operators_checked) {
-    if (query_exec_state_->hasExecutionFinished(index)) {
-      continue;
-    }
-    if (numa_node != kAnyNUMANodeID) {
-      // First try to get a normal WorkOrder from the specified NUMA node.
-      work_order = workorders_container_->getNormalWorkOrderForNUMANode(index, numa_node);
-      if (work_order != nullptr) {
-        // A WorkOrder found on the given NUMA node.
-        query_exec_state_->incrementNumQueuedWorkOrders(index);
-        return WorkerMessage::WorkOrderMessage(work_order, index);
-      } else {
-        // Normal workorder not found on this node. Look for a rebuild workorder
-        // on this NUMA node.
-        work_order = workorders_container_->getRebuildWorkOrderForNUMANode(index, numa_node);
-        if (work_order != nullptr) {
-          return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
-        }
-      }
-    }
-    // Either no workorder found on the given NUMA node, or numa_node is
-    // 'kAnyNUMANodeID'.
-    // Try to get a normal WorkOrder from other NUMA nodes.
-    work_order = workorders_container_->getNormalWorkOrder(index);
+  if (query_exec_state_->hasExecutionFinished(index)) {
+    return nullptr;
+  }
+  if (numa_node != kAnyNUMANodeID) {
+    // First try to get a normal WorkOrder from the specified NUMA node.
+    work_order =
+        workorders_container_->getNormalWorkOrderForNUMANode(index, numa_node);
     if (work_order != nullptr) {
+      // A WorkOrder found on the given NUMA node.
       query_exec_state_->incrementNumQueuedWorkOrders(index);
       return WorkerMessage::WorkOrderMessage(work_order, index);
     } else {
-      // Normal WorkOrder not found, look for a RebuildWorkOrder.
-      work_order = workorders_container_->getRebuildWorkOrder(index);
+      // Normal workorder not found on this node. Look for a rebuild workorder
+      // on this NUMA node.
+      work_order = workorders_container_->getRebuildWorkOrderForNUMANode(
+          index, numa_node);
       if (work_order != nullptr) {
         return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
       }
     }
   }
-  // No WorkOrders available right now.
+  // Either no workorder found on the given NUMA node, or numa_node is
+  // 'kAnyNUMANodeID'.
+  // Try to get a normal WorkOrder from other NUMA nodes.
+  work_order = workorders_container_->getNormalWorkOrder(index);
+  if (work_order != nullptr) {
+    query_exec_state_->incrementNumQueuedWorkOrders(index);
+    return WorkerMessage::WorkOrderMessage(work_order, index);
+  } else {
+    // Normal WorkOrder not found, look for a RebuildWorkOrder.
+    work_order = workorders_container_->getRebuildWorkOrder(index);
+    if (work_order != nullptr) {
+      return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
+    }
+  }
   return nullptr;
+}
+
+WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
+    const dag_node_index start_operator_index, const numa_node_id numa_node) {
+  // We will ignore the start_operator_index argument.
+  std::vector<dag_node_index> finished_operators;
+  WorkerMessage *msg = nullptr;
+  for (auto curr_op : active_operators_) {
+    msg = getWorkerMessageFromOperator(curr_op, numa_node);
+    if (msg != nullptr) {
+      // TODO(harshad) - Take care of the rotation among active operators.
+      return msg;
+    }
+  }
+  if (msg == nullptr) {
+    // First check if the list is empty.
+    if (active_operators_.empty()) {
+      // Get a new candidate.
+      auto next_candidate_for_active_ops = getHighestWaitingOperator();
+      if (next_candidate_for_active_ops.second >= 0) {
+        // There's a candidate. Remove it from the waiting list and insert it
+        // in the active list.
+        dag_node_index next_op = next_candidate_for_active_ops.first;
+        waiting_operators_.erase(
+            std::remove(
+                waiting_operators_.begin(), waiting_operators_.end(), next_op),
+            waiting_operators_.end());
+        active_operators_.emplace_back(next_op);
+        msg = getWorkerMessageFromOperator(next_op, numa_node);
+        // What if msg is null?
+      } else {
+        return msg;
+      }
+    } else {
+      // Active operators are waiting for more work to be generated, nothing can
+      // be done at this stage. Move on.
+      return msg;
+    }
+  }
+  // No WorkOrders available right now.
+  return msg;
 }
 
 bool QueryManagerSingleNode::fetchNormalWorkOrders(const dag_node_index index) {

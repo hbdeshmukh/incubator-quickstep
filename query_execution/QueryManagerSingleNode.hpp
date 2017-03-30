@@ -145,6 +145,9 @@ class QueryManagerSingleNode final : public QueryManagerBase {
 
   void printPendingWork() const;
 
+  WorkerMessage* getWorkerMessageFromOperator(const dag_node_index index,
+                                              const numa_node_id numa_node);
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
