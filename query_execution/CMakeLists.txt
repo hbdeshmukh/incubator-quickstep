@@ -296,7 +296,8 @@ target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_storage_StorageBlock
                       quickstep_utility_DAG
                       quickstep_utility_Macros
-                      tmb)
+                      tmb
+                      ${GFLAGS_LIB_NAME})
 if (ENABLE_DISTRIBUTED)
   target_link_libraries(quickstep_queryexecution_Shiftboss
                         glog

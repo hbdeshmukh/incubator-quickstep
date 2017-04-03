@@ -36,6 +36,7 @@
 #include "storage/StorageBlock.hpp"
 #include "utility/DAG.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 #include "tmb/id_typedefs.h"
@@ -43,6 +44,10 @@
 namespace quickstep {
 
 class WorkOrder;
+
+DEFINE_bool(shortest_remaining_work_first,
+            true,
+            "Pick the operator that has the shortest remaining work");
 
 QueryManagerSingleNode::QueryManagerSingleNode(
     const tmb::client_id foreman_client_id,
@@ -167,8 +172,13 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
   if (msg == nullptr) {
     // First check if the list is empty.
     if (active_operators_.empty()) {
-      // Get a new candidate.
-      auto next_candidate_for_active_ops = getHighestWaitingOperator();
+      // Get a new candidate operator.
+      std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
+      if (FLAGS_shortest_remaining_work_first) {
+        next_candidate_for_active_ops = getLowestWaitingOperatorNonZeroWork();
+      } else {
+        next_candidate_for_active_ops = getHighestWaitingOperator();
+      }
       if (next_candidate_for_active_ops.second >= 0) {
         // There's a candidate. Remove it from the waiting list and insert it
         // in the active list.

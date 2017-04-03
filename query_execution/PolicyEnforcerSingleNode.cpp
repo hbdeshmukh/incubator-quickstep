@@ -62,6 +62,7 @@ void PolicyEnforcerSingleNode::getWorkerMessages(
   std::vector<std::size_t> finished_queries_ids;
 
   for (const auto &admitted_query_info : admitted_queries_) {
+    const std::size_t query_id = admitted_query_info.first;
     QueryManagerBase *curr_query_manager = admitted_query_info.second.get();
     DCHECK(curr_query_manager != nullptr);
     std::size_t messages_collected_curr_query = 0;
@@ -69,6 +70,9 @@ void PolicyEnforcerSingleNode::getWorkerMessages(
       WorkerMessage *next_worker_message =
           static_cast<QueryManagerSingleNode*>(curr_query_manager)->getNextWorkerMessage(0, kAnyNUMANodeID);
       if (next_worker_message != nullptr) {
+        if (query_id == 2) {
+          LOG(INFO) << "Memory: " << static_cast<QueryManagerSingleNode*>(curr_query_manager)->getQueryMemoryConsumptionBytes();
+        }
         ++messages_collected_curr_query;
         worker_messages->push_back(std::unique_ptr<WorkerMessage>(next_worker_message));
       } else {
