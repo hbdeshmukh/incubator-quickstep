@@ -148,6 +148,12 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   WorkerMessage* getWorkerMessageFromOperator(const dag_node_index index,
                                               const numa_node_id numa_node);
 
+  /**
+   * @brief If the number of active operators are below a threshold, refill the
+   *        set of active operators.
+   **/
+  void refillOperators();
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
@@ -162,6 +168,9 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::vector<dag_node_index> waiting_operators_;
 
   std::vector<dag_node_index> active_operators_;
+
+  // The index of the next active operator to be used for work generation.
+  std::size_t next_active_op_index_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };

@@ -67,7 +67,8 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       bus_)),
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
-      database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
+      database_(static_cast<const CatalogDatabase&>(*catalog_database)),
+      next_active_op_index_(0) {
   // Populate the active operators list.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
     waiting_operators_.emplace_back(index);
@@ -162,41 +163,25 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
   // We will ignore the start_operator_index argument.
   std::vector<dag_node_index> finished_operators;
   WorkerMessage *msg = nullptr;
-  for (auto curr_op : active_operators_) {
-    msg = getWorkerMessageFromOperator(curr_op, numa_node);
+  // Loop over all the active operators to get work.
+  for (std::size_t num_active_operators_checked = 0;
+       num_active_operators_checked < active_operators_.size();
+       ++num_active_operators_checked) {
+    msg = getWorkerMessageFromOperator(active_operators_[next_active_op_index_],
+                                       numa_node);
+    next_active_op_index_ =
+        (next_active_op_index_ + 1) % active_operators_.size();
     if (msg != nullptr) {
-      // TODO(harshad) - Take care of the rotation among active operators.
       return msg;
     }
   }
   if (msg == nullptr) {
     // First check if the list is empty.
-    if (active_operators_.empty()) {
-      // Get a new candidate operator.
-      std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
-      if (FLAGS_shortest_remaining_work_first) {
-        next_candidate_for_active_ops = getLowestWaitingOperatorNonZeroWork();
-      } else {
-        next_candidate_for_active_ops = getHighestWaitingOperator();
+    if (active_operators_.size() < kMaxActiveOperators) {
+      refillOperators();
+      if (!active_operators_.empty()) {
+        msg = getWorkerMessageFromOperator(active_operators_.back(), numa_node);
       }
-      if (next_candidate_for_active_ops.second >= 0) {
-        // There's a candidate. Remove it from the waiting list and insert it
-        // in the active list.
-        dag_node_index next_op = next_candidate_for_active_ops.first;
-        waiting_operators_.erase(
-            std::remove(
-                waiting_operators_.begin(), waiting_operators_.end(), next_op),
-            waiting_operators_.end());
-        active_operators_.emplace_back(next_op);
-        msg = getWorkerMessageFromOperator(next_op, numa_node);
-        // What if msg is null?
-      } else {
-        return msg;
-      }
-    } else {
-      // Active operators are waiting for more work to be generated, nothing can
-      // be done at this stage. Move on.
-      return msg;
     }
   }
   // No WorkOrders available right now.
@@ -308,6 +293,9 @@ void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
   active_operators_.erase(
       std::remove(active_operators_.begin(), active_operators_.end(), index),
       active_operators_.end());
+  // Reset the next active operator index to 0.
+  next_active_op_index_ = 0;
+
   query_exec_state_->setExecutionFinished(index);
 
   RelationalOperator *op = query_dag_->getNodePayloadMutable(index);
@@ -348,6 +336,32 @@ void QueryManagerSingleNode::printPendingWork() const {
     std::cout << i << ":" << workorders_container_->getNumTotalWorkOrders(i) << " ";
   }
   std::cout << std::endl;
+}
+
+void QueryManagerSingleNode::refillOperators() {
+  DCHECK_LT(active_operators_.size(), kMaxActiveOperators);
+  while (!waiting_operators_.empty() ||
+         active_operators_.size() < kMaxActiveOperators) {
+    // Get a new candidate operator.
+    std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
+    if (FLAGS_shortest_remaining_work_first) {
+      next_candidate_for_active_ops = getLowestWaitingOperatorNonZeroWork();
+    } else {
+      next_candidate_for_active_ops = getHighestWaitingOperator();
+    }
+    if (next_candidate_for_active_ops.second >= 0) {
+      // There's a candidate. Remove it from the waiting list and insert it
+      // in the active list.
+      dag_node_index next_op = next_candidate_for_active_ops.first;
+      waiting_operators_.erase(
+          std::remove(
+              waiting_operators_.begin(), waiting_operators_.end(), next_op),
+          waiting_operators_.end());
+      active_operators_.emplace_back(next_op);
+    }
+  }
+  // Reset the next active operator index to 0.
+  next_active_op_index_ = 0;
 }
 
 }  // namespace quickstep
