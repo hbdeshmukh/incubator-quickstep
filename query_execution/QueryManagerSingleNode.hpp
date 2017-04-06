@@ -132,6 +132,9 @@ class QueryManagerSingleNode final : public QueryManagerBase {
    **/
   std::size_t getTotalTempRelationMemoryInBytes() const;
 
+  WorkerMessage* getWorkerMessageFromOperator(const dag_node_index index,
+                                              const numa_node_id numa_node);
+
   int getRandomOperatorWithAvailableWork();
 
   const tmb::client_id foreman_client_id_;

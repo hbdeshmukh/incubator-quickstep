@@ -72,47 +72,54 @@ QueryManagerSingleNode::QueryManagerSingleNode(
   }
 }
 
-WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
-    const dag_node_index start_operator_index, const numa_node_id numa_node) {
-  // Default policy: Operator with lowest index first.
+WorkerMessage* QueryManagerSingleNode::getWorkerMessageFromOperator(
+    const dag_node_index index, const numa_node_id numa_node) {
   WorkOrder *work_order = nullptr;
-  size_t num_operators_checked = 0;
-  for (dag_node_index index = start_operator_index;
-       num_operators_checked < num_operators_in_dag_;
-       index = (index + 1) % num_operators_in_dag_, ++num_operators_checked) {
-    if (query_exec_state_->hasExecutionFinished(index)) {
-      continue;
-    }
-    if (numa_node != kAnyNUMANodeID) {
-      // First try to get a normal WorkOrder from the specified NUMA node.
-      work_order = workorders_container_->getNormalWorkOrderForNUMANode(index, numa_node);
-      if (work_order != nullptr) {
-        // A WorkOrder found on the given NUMA node.
-        query_exec_state_->incrementNumQueuedWorkOrders(index);
-        return WorkerMessage::WorkOrderMessage(work_order, index);
-      } else {
-        // Normal workorder not found on this node. Look for a rebuild workorder
-        // on this NUMA node.
-        work_order = workorders_container_->getRebuildWorkOrderForNUMANode(index, numa_node);
-        if (work_order != nullptr) {
-          return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
-        }
-      }
-    }
-    // Either no workorder found on the given NUMA node, or numa_node is
-    // 'kAnyNUMANodeID'.
-    // Try to get a normal WorkOrder from other NUMA nodes.
-    work_order = workorders_container_->getNormalWorkOrder(index);
+  if (query_exec_state_->hasExecutionFinished(index)) {
+    return nullptr;
+  }
+  if (numa_node != kAnyNUMANodeID) {
+    // First try to get a normal WorkOrder from the specified NUMA node.
+    work_order =
+        workorders_container_->getNormalWorkOrderForNUMANode(index, numa_node);
     if (work_order != nullptr) {
+      // A WorkOrder found on the given NUMA node.
       query_exec_state_->incrementNumQueuedWorkOrders(index);
       return WorkerMessage::WorkOrderMessage(work_order, index);
     } else {
-      // Normal WorkOrder not found, look for a RebuildWorkOrder.
-      work_order = workorders_container_->getRebuildWorkOrder(index);
+      // Normal workorder not found on this node. Look for a rebuild workorder
+      // on this NUMA node.
+      work_order = workorders_container_->getRebuildWorkOrderForNUMANode(
+          index, numa_node);
       if (work_order != nullptr) {
         return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
       }
     }
+  }
+  // Either no workorder found on the given NUMA node, or numa_node is
+  // 'kAnyNUMANodeID'.
+  // Try to get a normal WorkOrder from other NUMA nodes.
+  work_order = workorders_container_->getNormalWorkOrder(index);
+  if (work_order != nullptr) {
+    query_exec_state_->incrementNumQueuedWorkOrders(index);
+    return WorkerMessage::WorkOrderMessage(work_order, index);
+  } else {
+    // Normal WorkOrder not found, look for a RebuildWorkOrder.
+    work_order = workorders_container_->getRebuildWorkOrder(index);
+    if (work_order != nullptr) {
+      return WorkerMessage::RebuildWorkOrderMessage(work_order, index);
+    }
+  }
+  return nullptr;
+}
+
+WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
+    const dag_node_index start_operator_index, const numa_node_id numa_node) {
+  // Default policy: Operator with lowest index first.
+  int next_operator = getRandomOperatorWithAvailableWork();
+  if (next_operator >= 0) {
+    return getWorkerMessageFromOperator(
+        static_cast<dag_node_index>(next_operator), numa_node);
   }
   // No WorkOrders available right now.
   return nullptr;
@@ -225,7 +232,10 @@ int QueryManagerSingleNode::getRandomOperatorWithAvailableWork() {
       operators_with_pending_work.emplace_back(node_id);
     }
   }
-  if (!operators_with_pending_work.empty()) {
+  if (operators_with_pending_work.size() == 1) {
+    // Short path.
+    return operators_with_pending_work[0];
+  } else if (operators_with_pending_work.size() > 1) {
     std::uniform_int_distribution<std::size_t> dist(
         0, operators_with_pending_work.size());
     return static_cast<int>(operators_with_pending_work[dist(mt_)]);
