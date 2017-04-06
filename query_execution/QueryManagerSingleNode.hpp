@@ -99,7 +99,7 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::size_t getQueryMemoryConsumptionBytes() const override;
 
  private:
-  static constexpr std::size_t kMaxActiveOperators = 1;
+  static constexpr std::size_t kMaxActiveOperators = 2;
 
   bool checkNormalExecutionOver(const dag_node_index index) const override {
     return (checkAllDependenciesMet(index) &&

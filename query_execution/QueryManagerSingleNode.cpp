@@ -80,6 +80,7 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       processOperator(index, false);
     }
   }
+  refillOperators();
 }
 
 std::pair<QueryManagerBase::dag_node_index, int>
@@ -167,8 +168,8 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
   for (std::size_t num_active_operators_checked = 0;
        num_active_operators_checked < active_operators_.size();
        ++num_active_operators_checked) {
-    msg = getWorkerMessageFromOperator(active_operators_[next_active_op_index_],
-                                       numa_node);
+    msg = getWorkerMessageFromOperator(
+        active_operators_[next_active_op_index_], numa_node);
     next_active_op_index_ =
         (next_active_op_index_ + 1) % active_operators_.size();
     if (msg != nullptr) {
@@ -293,6 +294,7 @@ void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
   active_operators_.erase(
       std::remove(active_operators_.begin(), active_operators_.end(), index),
       active_operators_.end());
+  refillOperators();
   // Reset the next active operator index to 0.
   next_active_op_index_ = 0;
 
@@ -339,8 +341,10 @@ void QueryManagerSingleNode::printPendingWork() const {
 }
 
 void QueryManagerSingleNode::refillOperators() {
+  const std::size_t original_active_operators_count = active_operators_.size();
+  std::size_t num_operators_checked = 0;
   DCHECK_LT(active_operators_.size(), kMaxActiveOperators);
-  while (!waiting_operators_.empty() ||
+  while (num_operators_checked < waiting_operators_.size() &&
          active_operators_.size() < kMaxActiveOperators) {
     // Get a new candidate operator.
     std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
@@ -358,10 +362,16 @@ void QueryManagerSingleNode::refillOperators() {
               waiting_operators_.begin(), waiting_operators_.end(), next_op),
           waiting_operators_.end());
       active_operators_.emplace_back(next_op);
+      ++num_operators_checked;
+    } else {
+      break;
     }
   }
-  // Reset the next active operator index to 0.
-  next_active_op_index_ = 0;
+  if (original_active_operators_count != active_operators_.size()) {
+    // This means, we added new operators to the active operators' list.
+    // Reset the next active operator index to 0.
+    next_active_op_index_ = 0;
+  }
 }
 
 }  // namespace quickstep
