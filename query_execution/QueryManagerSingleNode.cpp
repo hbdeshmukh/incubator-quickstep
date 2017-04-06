@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -60,7 +61,8 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       bus_)),
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
-      database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
+      database_(static_cast<const CatalogDatabase&>(*catalog_database)),
+      mt_(std::random_device()()) {
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
     if (checkAllBlockingDependenciesMet(index)) {
@@ -213,6 +215,23 @@ std::size_t QueryManagerSingleNode::getTotalTempRelationMemoryInBytes() const {
     }
   }
   return memory;
+}
+
+int QueryManagerSingleNode::getRandomOperatorWithAvailableWork() {
+  std::vector<dag_node_index> operators_with_pending_work;
+  for (std::size_t node_id = 0; node_id < query_dag_->size(); ++node_id) {
+    if (!query_exec_state_->hasExecutionFinished(node_id) &&
+        workorders_container_->getNumTotalWorkOrders(node_id) > 0) {
+      operators_with_pending_work.emplace_back(node_id);
+    }
+  }
+  if (!operators_with_pending_work.empty()) {
+    std::uniform_int_distribution<std::size_t> dist(
+        0, operators_with_pending_work.size());
+    return static_cast<int>(operators_with_pending_work[dist(mt_)]);
+  } else {
+    return -1;
+  }
 }
 
 }  // namespace quickstep

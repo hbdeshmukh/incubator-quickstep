@@ -132,6 +132,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
    **/
   std::size_t getTotalTempRelationMemoryInBytes() const;
 
+  int getRandomOperatorWithAvailableWork();
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
@@ -142,6 +144,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::unique_ptr<WorkOrdersContainer> workorders_container_;
 
   const CatalogDatabase &database_;
+
+  std::mt19937_64 mt_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };
