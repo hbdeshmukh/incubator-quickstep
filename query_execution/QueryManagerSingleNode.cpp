@@ -237,7 +237,7 @@ int QueryManagerSingleNode::getRandomOperatorWithAvailableWork() {
     return operators_with_pending_work[0];
   } else if (operators_with_pending_work.size() > 1) {
     std::uniform_int_distribution<std::size_t> dist(
-        0, operators_with_pending_work.size());
+        0, operators_with_pending_work.size() - 1);
     return static_cast<int>(operators_with_pending_work[dist(mt_)]);
   } else {
     return -1;
