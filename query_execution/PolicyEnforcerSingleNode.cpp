@@ -69,6 +69,9 @@ void PolicyEnforcerSingleNode::getWorkerMessages(
       WorkerMessage *next_worker_message =
           static_cast<QueryManagerSingleNode*>(curr_query_manager)->getNextWorkerMessage(0, kAnyNUMANodeID);
       if (next_worker_message != nullptr) {
+        if (admitted_query_info.first == 2) {
+          LOG(INFO) << "Memory: " << static_cast<QueryManagerSingleNode*>(curr_query_manager)->getQueryMemoryConsumptionBytes();
+        }
         ++messages_collected_curr_query;
         worker_messages->push_back(std::unique_ptr<WorkerMessage>(next_worker_message));
       } else {

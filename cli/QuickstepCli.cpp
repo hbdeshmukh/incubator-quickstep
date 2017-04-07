@@ -386,7 +386,7 @@ int main(int argc, char* argv[]) {
             // TODO(harshad) - Allow user specified file instead of stdout.
             foreman.printWorkOrderProfilingResults(query_id, stdout);
           }
-          if (quickstep::FLAGS_visualize_execution_dag) {
+          if (quickstep::FLAGS_visualize_execution_dag && query_id == 2) {
             const auto &profiling_stats =
                 foreman.getWorkOrderProfilingResults(query_id);
             dag_visualizer->bindProfilingStats(profiling_stats);
