@@ -62,7 +62,8 @@ class Worker : public Thread {
          int cpu_id = -1)
       : worker_thread_index_(worker_thread_index),
         bus_(bus),
-        cpu_id_(cpu_id) {
+        cpu_id_(cpu_id),
+        num_workorders_(0) {
     DEBUG_ASSERT(bus_ != nullptr);
     worker_client_id_ = bus_->Connect();
 
@@ -136,6 +137,8 @@ class Worker : public Thread {
 
   const int cpu_id_;
   client_id worker_client_id_;
+
+  std::size_t num_workorders_;
 
 #ifdef QUICKSTEP_DISTRIBUTED
   std::size_t shiftboss_index_;

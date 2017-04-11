@@ -587,6 +587,24 @@ if(USE_TCMALLOC)
   endif()
 endif()
 
+# Add opcm as an external project.
+ExternalProject_Add(
+  opcm
+  SOURCE_DIR ${THIRD_PARTY_SOURCE_DIR}/opcm
+  CONFIGURE_COMMAND "" 
+  INSTALL_COMMAND ""
+  BUILD_COMMAND make lib
+  BUILD_IN_SOURCE 1
+  )
+add_library(libopcm STATIC IMPORTED)
+set_property(TARGET libopcm PROPERTY IMPORTED_LOCATION  ${THIRD_PARTY_SOURCE_DIR}/opcm/libPCM.a)
+add_dependencies(libopcm opcm)
+set(LIBS ${LIBS} libopcm)
+include_directories("${THIRD_PARTY_SOURCE_DIR}")
+# The opcm code compilation throws an error "anonymous types declared in an 
+# anonymous union are an extension". The following workaround avoids the error. 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nested-anon-types")
+
 # Add Protocol Buffers.
 # First, see if protobufs are already installed on this system (unless
 # USE_LIBCXX is on, in which case we compile ourselves to be safe, in
