@@ -34,7 +34,7 @@
 #include "threading/ThreadIDBasedMap.hpp"
 #include "threading/ThreadUtil.hpp"
 
-#include "opcm/cpucounters.h"
+//#include "opcm/cpucounters.h"
 
 #include "glog/logging.h"
 
@@ -58,7 +58,7 @@ void Worker::run() {
   }
   ClientIDMap *thread_id_map = ClientIDMap::Instance();
   thread_id_map->addValue(worker_client_id_);
-  PCM *m = nullptr;
+  /*PCM *m = nullptr;
   if (cpu_id_ == 2) {
     m = PCM::getInstance();
     PCM::ErrorCode return_result = m->program();
@@ -67,7 +67,7 @@ void Worker::run() {
       std::cout << "Error code: " << return_result << "\n";
       exit(1);
     }
-  }
+  }*/
   for (;;) {
     // Receive() is a blocking call, causing this thread to sleep until next
     // message is received.
@@ -135,26 +135,26 @@ void Worker::executeWorkOrderHelper(const TaggedMessage &tagged_message,
                                     WorkOrderCompletionMessage *proto,
                                     const bool is_rebuild_work_order) {
   std::chrono::time_point<std::chrono::steady_clock> start, end;
-  SystemCounterState before_sstate;
-  SystemCounterState after_sstate;
+  /*SystemCounterState before_sstate;
+  SystemCounterState after_sstate;*/
 
   WorkerMessage worker_message(
       *static_cast<const WorkerMessage *>(tagged_message.message()));
   DCHECK(worker_message.getWorkOrder() != nullptr);
   const size_t query_id_for_workorder = worker_message.getWorkOrder()->getQueryID();
 
-  if (cpu_id_ == 2 && query_id_for_workorder == 2 && num_workorders_ % 2 == 0) {
+  /*if (cpu_id_ == 2 && query_id_for_workorder == 2 && num_workorders_ % 2 == 0) {
     before_sstate = getSystemCounterState();
-  }
+  }*/
   // Start measuring the execution time.
   start = std::chrono::steady_clock::now();
   worker_message.getWorkOrder()->execute();
   end = std::chrono::steady_clock::now();
-  if (cpu_id_ == 2 && query_id_for_workorder == 2 && num_workorders_ % 2 == 0) {
+  /*if (cpu_id_ == 2 && query_id_for_workorder == 2 && num_workorders_ % 2 == 0) {
     after_sstate = getSystemCounterState();
     LOG(INFO) << "L3-hit: " << static_cast<double>(getL3CacheHitRatio(
                                         before_sstate, after_sstate));
-  }
+  }*/
   delete worker_message.getWorkOrder();
 
   // Convert the measured timestamps to epoch times in microseconds.
