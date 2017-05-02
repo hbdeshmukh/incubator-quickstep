@@ -34,6 +34,8 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_ForemanDistributed ForemanDistributed.cpp ForemanDistributed.hpp)
 endif(ENABLE_DISTRIBUTED)
 add_library(quickstep_queryexecution_ForemanSingleNode ForemanSingleNode.cpp ForemanSingleNode.hpp)
+add_library(quickstep_queryexecution_IntraQuerySchedulingStrategy ../empty_src.cpp IntraQuerySchedulingStrategy.hpp)
+add_library(quickstep_queryexecution_LargestRemainingWorkFirstStrategy ../empty_src.cpp LargestRemainingWorkFirstStrategy.hpp)
 add_library(quickstep_queryexecution_PolicyEnforcerBase PolicyEnforcerBase.cpp PolicyEnforcerBase.hpp)
 if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_PolicyEnforcerDistributed PolicyEnforcerDistributed.cpp PolicyEnforcerDistributed.hpp)
@@ -58,6 +60,8 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_Shiftboss Shiftboss.cpp Shiftboss.hpp)
   add_library(quickstep_queryexecution_ShiftbossDirectory ../empty_src.cpp ShiftbossDirectory.hpp)
 endif(ENABLE_DISTRIBUTED)
+add_library(quickstep_queryexecution_ShortestRemainingWorkFirstStrategy ShortestRemainingWorkFirstStrategy.cpp ShortestRemainingWorkFirstStrategy.hpp)
+add_library(quickstep_queryexecution_TopologicalSortStaticOrderStrategy ../empty_src.cpp TopologicalSortStaticOrderStrategy.hpp)
 add_library(quickstep_queryexecution_WorkOrderProtosContainer ../empty_src.cpp WorkOrderProtosContainer.hpp)
 add_library(quickstep_queryexecution_WorkOrdersContainer WorkOrdersContainer.cpp WorkOrdersContainer.hpp)
 add_library(quickstep_queryexecution_Worker Worker.cpp Worker.hpp)
@@ -138,6 +142,11 @@ target_link_libraries(quickstep_queryexecution_ForemanSingleNode
                       quickstep_utility_Macros
                       tmb
                       ${GFLAGS_LIB_NAME})
+target_link_libraries(quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_utility_Macros)
+target_link_libraries(quickstep_queryexecution_LargestRemainingWorkFirstStrategy
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_PolicyEnforcerBase
                       glog
                       quickstep_catalog_CatalogDatabase
@@ -284,9 +293,14 @@ endif(ENABLE_DISTRIBUTED)
 target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_catalog_CatalogDatabase
                       quickstep_catalog_CatalogTypedefs
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_queryexecution_LargestRemainingWorkFirstStrategy
                       quickstep_queryexecution_QueryContext
                       quickstep_queryexecution_QueryExecutionState
+                      quickstep_queryexecution_QueryExecutionTypedefs
                       quickstep_queryexecution_QueryManagerBase
+                      quickstep_queryexecution_ShortestRemainingWorkFirstStrategy
+                      quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_WorkerMessage
                       quickstep_queryoptimizer_QueryHandle
@@ -326,6 +340,17 @@ if (ENABLE_DISTRIBUTED)
                         quickstep_utility_Macros
                         tmb)
 endif(ENABLE_DISTRIBUTED)
+target_link_libraries(quickstep_queryexecution_ShortestRemainingWorkFirstStrategy
+                      glog
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_queryexecution_WorkOrdersContainer
+                      quickstep_relationaloperators_RelationalOperator
+                      quickstep_utility_DAG
+                      quickstep_utility_Macros
+                      ${GFLAGS_LIB_NAME})
+target_link_libraries(quickstep_queryexecution_TopologicalSortStaticOrderStrategy
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_WorkOrderProtosContainer
                       glog
                       quickstep_relationaloperators_WorkOrder_proto
@@ -360,6 +385,8 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_AdmitRequestMessage
                       quickstep_queryexecution_ForemanBase
                       quickstep_queryexecution_ForemanSingleNode
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_queryexecution_LargestRemainingWorkFirstStrategy
                       quickstep_queryexecution_PolicyEnforcerBase
                       quickstep_queryexecution_PolicyEnforcerSingleNode
                       quickstep_queryexecution_QueryContext
@@ -370,6 +397,8 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_QueryExecutionUtil
                       quickstep_queryexecution_QueryManagerBase
                       quickstep_queryexecution_QueryManagerSingleNode
+                      quickstep_queryexecution_ShortestRemainingWorkFirstStrategy
+                      quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_WorkOrderProtosContainer
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_Worker

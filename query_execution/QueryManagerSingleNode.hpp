@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/IntraQuerySchedulingStrategy.hpp"
 #include "query_execution/QueryContext.hpp"
 #include "query_execution/QueryExecutionState.hpp"
 #include "query_execution/QueryManagerBase.hpp"
@@ -154,6 +155,11 @@ class QueryManagerSingleNode final : public QueryManagerBase {
    **/
   void refillOperators();
 
+  template <bool shortest_remaining_work_first>
+  void refillOperatorsHelper();
+
+  void initializeState();
+
   const tmb::client_id foreman_client_id_;
 
   StorageManager *storage_manager_;
@@ -165,11 +171,11 @@ class QueryManagerSingleNode final : public QueryManagerBase {
 
   const CatalogDatabase &database_;
 
-  std::vector<dag_node_index> waiting_operators_;
+  std::unique_ptr<IntraQuerySchedulingStrategy> scheduling_strategy_;
 
+  std::vector<dag_node_index> waiting_operators_;
   std::vector<dag_node_index> active_operators_;
 
-  // The index of the next active operator to be used for work generation.
   std::size_t next_active_op_index_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);

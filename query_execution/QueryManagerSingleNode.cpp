@@ -28,6 +28,10 @@
 
 #include "catalog/CatalogDatabase.hpp"
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/LargestRemainingWorkFirstStrategy.hpp"
+#include "query_execution/QueryExecutionTypedefs.hpp"
+#include "query_execution/ShortestRemainingWorkFirstStrategy.hpp"
+#include "query_execution/TopologicalSortStaticOrderStrategy.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
 #include "relational_operators/RebuildWorkOrder.hpp"
@@ -45,9 +49,11 @@ namespace quickstep {
 
 class WorkOrder;
 
-DEFINE_bool(shortest_remaining_work_first,
-            true,
-            "Pick the operator that has the shortest remaining work");
+DEFINE_int32(scheduling_strategy,
+              0,
+              "The scheduling strategy to be used. One of \"shortest remaining "
+              "work first\", \"largest remaining work first\", \"static "
+              "ordering topological sort\".");
 
 QueryManagerSingleNode::QueryManagerSingleNode(
     const tmb::client_id foreman_client_id,
@@ -67,11 +73,23 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       bus_)),
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
-      database_(static_cast<const CatalogDatabase&>(*catalog_database)),
-      next_active_op_index_(0) {
-  // Populate the active operators list.
-  for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
-    waiting_operators_.emplace_back(index);
+      database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
+  switch (FLAGS_scheduling_strategy) {
+    case kShortestRemainingWorkFirst: {
+      scheduling_strategy_.reset(new ShortestRemainingWorkFirstStrategy(
+          query_dag_, workorders_container_.get()));
+      break;
+    }
+    case kLargestRemainingWorkFirst: {
+      scheduling_strategy_.reset(new LargestRemainingWorkFirstStrategy());
+      break;
+    }
+    case kStaticOrderTopoSort: {
+      scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy());
+      break;
+    }
+    default:
+      std::cout << "Invalid strategy choice\n";
   }
   // Collect all the workorders from all the relational operators in the DAG.
   for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
@@ -80,7 +98,6 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       processOperator(index, false);
     }
   }
-  refillOperators();
 }
 
 std::pair<QueryManagerBase::dag_node_index, int>
@@ -164,28 +181,12 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
   // We will ignore the start_operator_index argument.
   std::vector<dag_node_index> finished_operators;
   WorkerMessage *msg = nullptr;
-  // Loop over all the active operators to get work.
-  for (std::size_t num_active_operators_checked = 0;
-       num_active_operators_checked < active_operators_.size();
-       ++num_active_operators_checked) {
+  int next_op_id = scheduling_strategy_->getNextOperator();
+  if (next_op_id >= 0) {
     msg = getWorkerMessageFromOperator(
-        active_operators_[next_active_op_index_], numa_node);
-    next_active_op_index_ =
-        (next_active_op_index_ + 1) % active_operators_.size();
-    if (msg != nullptr) {
-      return msg;
-    }
+        next_op_id, numa_node);
   }
-  if (msg == nullptr) {
-    // First check if the list is empty.
-    if (active_operators_.size() < kMaxActiveOperators) {
-      refillOperators();
-      if (!active_operators_.empty()) {
-        msg = getWorkerMessageFromOperator(active_operators_.back(), numa_node);
-      }
-    }
-  }
-  // No WorkOrders available right now.
+  // else case implies no WorkOrders are available right now.
   return msg;
 }
 
@@ -291,12 +292,13 @@ std::size_t QueryManagerSingleNode::getTotalTempRelationMemoryInBytes() const {
 }
 
 void QueryManagerSingleNode::markOperatorFinished(const dag_node_index index) {
-  active_operators_.erase(
+  /*active_operators_.erase(
       std::remove(active_operators_.begin(), active_operators_.end(), index),
       active_operators_.end());
   refillOperators();
   // Reset the next active operator index to 0.
-  next_active_op_index_ = 0;
+  next_active_op_index_ = 0;*/
+  scheduling_strategy_->informCompletionOfOperator(index);
 
   query_exec_state_->setExecutionFinished(index);
 
@@ -341,6 +343,53 @@ void QueryManagerSingleNode::printPendingWork() const {
 }
 
 void QueryManagerSingleNode::refillOperators() {
+  switch (FLAGS_scheduling_strategy) {
+    case kShortestRemainingWorkFirst: {
+      refillOperatorsHelper<true>();
+      break;
+    }
+    case kLargestRemainingWorkFirst: {
+      refillOperatorsHelper<false>();
+      break;
+    }
+    case kStaticOrderTopoSort: {
+      // Check if the current active operator has finished execution.
+      break;
+    }
+  }
+}
+
+void QueryManagerSingleNode::initializeState() {
+  next_active_op_index_ = 0;
+  switch (FLAGS_scheduling_strategy) {
+    case kShortestRemainingWorkFirst: // Fall through
+    case kLargestRemainingWorkFirst: {
+      // Populate the active operators list.
+      for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
+        waiting_operators_.emplace_back(index);
+      }
+      break;
+    }
+    case kStaticOrderTopoSort: {
+      // A topologically sorted list of operators in the DAG.
+      std::vector<dag_node_index> topo_sorted_operators(
+          query_dag_->getTopologicalSorting());
+      DCHECK(!topo_sorted_operators.empty());
+      // Insert the first element of this vector in active_operators_ and insert
+      // others in the waiting_operators_ list.
+      active_operators_.emplace_back(topo_sorted_operators.front());
+      // Get the second element's iter.
+      auto waiting_operators_begin_it = topo_sorted_operators.begin() + 1;
+      waiting_operators_.insert(waiting_operators_.end(),
+                                waiting_operators_begin_it,
+                                topo_sorted_operators.end());
+      break;
+    }
+  }
+}
+
+template <bool shortest_remaining_work_first>
+void QueryManagerSingleNode::refillOperatorsHelper() {
   const std::size_t original_active_operators_count = active_operators_.size();
   std::size_t num_operators_checked = 0;
   DCHECK_LT(active_operators_.size(), kMaxActiveOperators);
@@ -348,7 +397,7 @@ void QueryManagerSingleNode::refillOperators() {
          active_operators_.size() < kMaxActiveOperators) {
     // Get a new candidate operator.
     std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
-    if (FLAGS_shortest_remaining_work_first) {
+    if (shortest_remaining_work_first) {
       next_candidate_for_active_ops = getLowestWaitingOperatorNonZeroWork();
     } else {
       next_candidate_for_active_ops = getHighestWaitingOperator();

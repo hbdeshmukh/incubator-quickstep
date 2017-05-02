@@ -133,6 +133,12 @@ struct WorkOrderTimeEntry {
 // Value = vector of work order profiling records.
 typedef std::unordered_map<std::size_t, std::vector<WorkOrderTimeEntry>> WorkOrderTimeRecorder;
 
+enum SchedulingStrategy {
+  kShortestRemainingWorkFirst = 0,
+  kLargestRemainingWorkFirst,
+  kStaticOrderTopoSort
+};
+
 /** @} */
 
 }  // namespace quickstep
