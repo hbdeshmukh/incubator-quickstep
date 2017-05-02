@@ -81,7 +81,8 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       break;
     }
     case kLargestRemainingWorkFirst: {
-      scheduling_strategy_.reset(new LargestRemainingWorkFirstStrategy());
+      scheduling_strategy_.reset(new LargestRemainingWorkFirstStrategy(
+          query_dag_, workorders_container_.get()));
       break;
     }
     case kStaticOrderTopoSort: {

@@ -17,7 +17,7 @@
  * under the License.
  **/
 
-#include "query_execution/ShortestRemainingWorkFirstStrategy.hpp"
+#include "query_execution/LargestRemainingWorkFirstStrategy.hpp"
 
 #include <cstddef>
 #include <utility>
@@ -27,12 +27,12 @@
 
 namespace quickstep {
 
-DEFINE_int32(max_num_concurrent_operators_srwf,
+DEFINE_int32(max_num_concurrent_operators_lrwf,
              1,
              "The maximum number of concurrent operators that the strategy can "
              "accommodate.");
 
-ShortestRemainingWorkFirstStrategy::ShortestRemainingWorkFirstStrategy(
+LargestRemainingWorkFirstStrategy::LargestRemainingWorkFirstStrategy(
     DAG<RelationalOperator, bool> *query_dag,
     WorkOrdersContainer *workorders_container)
     : query_dag_(query_dag),
@@ -44,17 +44,17 @@ ShortestRemainingWorkFirstStrategy::ShortestRemainingWorkFirstStrategy(
   refillOperators();
 }
 
-void ShortestRemainingWorkFirstStrategy::refillOperators() {
+void LargestRemainingWorkFirstStrategy::refillOperators() {
   const std::size_t original_active_operators_count = active_operators_.size();
   std::size_t num_operators_checked = 0;
   DCHECK_LT(active_operators_.size(),
-            static_cast<std::size_t>(FLAGS_max_num_concurrent_operators_srwf));
+            static_cast<std::size_t>(FLAGS_max_num_concurrent_operators_lrwf));
   while (num_operators_checked < waiting_operators_.size() &&
          active_operators_.size() <
-             static_cast<std::size_t>(FLAGS_max_num_concurrent_operators_srwf)) {
+             static_cast<std::size_t>(FLAGS_max_num_concurrent_operators_lrwf)) {
     // Get a new candidate operator.
     std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
-    next_candidate_for_active_ops = getLowestWaitingOperatorNonZeroWork();
+    next_candidate_for_active_ops = getHighestWaitingOperator();
     if (next_candidate_for_active_ops.second >= 0) {
       // There's a candidate. Remove it from the waiting list and insert it
       // in the active list.

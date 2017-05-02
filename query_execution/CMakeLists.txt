@@ -35,7 +35,7 @@ if (ENABLE_DISTRIBUTED)
 endif(ENABLE_DISTRIBUTED)
 add_library(quickstep_queryexecution_ForemanSingleNode ForemanSingleNode.cpp ForemanSingleNode.hpp)
 add_library(quickstep_queryexecution_IntraQuerySchedulingStrategy ../empty_src.cpp IntraQuerySchedulingStrategy.hpp)
-add_library(quickstep_queryexecution_LargestRemainingWorkFirstStrategy ../empty_src.cpp LargestRemainingWorkFirstStrategy.hpp)
+add_library(quickstep_queryexecution_LargestRemainingWorkFirstStrategy LargestRemainingWorkFirstStrategy.cpp LargestRemainingWorkFirstStrategy.hpp)
 add_library(quickstep_queryexecution_PolicyEnforcerBase PolicyEnforcerBase.cpp PolicyEnforcerBase.hpp)
 if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_PolicyEnforcerDistributed PolicyEnforcerDistributed.cpp PolicyEnforcerDistributed.hpp)
@@ -145,8 +145,13 @@ target_link_libraries(quickstep_queryexecution_ForemanSingleNode
 target_link_libraries(quickstep_queryexecution_IntraQuerySchedulingStrategy
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_LargestRemainingWorkFirstStrategy
+                      glog
                       quickstep_queryexecution_IntraQuerySchedulingStrategy
-                      quickstep_utility_Macros)
+                      quickstep_queryexecution_WorkOrdersContainer
+                      quickstep_relationaloperators_RelationalOperator
+                      quickstep_utility_DAG
+                      quickstep_utility_Macros
+                      ${GFLAGS_LIB_NAME})
 target_link_libraries(quickstep_queryexecution_PolicyEnforcerBase
                       glog
                       quickstep_catalog_CatalogDatabase
