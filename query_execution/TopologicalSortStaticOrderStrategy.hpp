@@ -17,10 +17,11 @@
  * under the License.
  **/
 
-#ifndef QUICKSTEP_QUERY_EXECUTION_TOPOLOGICAL_SORT_STATIC_ORDER_STRATEGY_STRATEGY_HPP_
-#define QUICKSTEP_QUERY_EXECUTION_TOPOLOGICAL_SORT_STATIC_ORDER_STRATEGY_STRATEGY_HPP_
+#ifndef QUICKSTEP_QUERY_EXECUTION_TOPOLOGICAL_SORT_STATIC_ORDER_STRATEGY_HPP_
+#define QUICKSTEP_QUERY_EXECUTION_TOPOLOGICAL_SORT_STATIC_ORDER_STRATEGY_HPP_
 
 #include "query_execution/IntraQuerySchedulingStrategy.hpp"
+#include "utility/DAG.hpp"
 #include "utility/Macros.hpp"
 
 namespace quickstep {
@@ -34,20 +35,25 @@ class TopologicalSortStaticOrderStrategy : public IntraQuerySchedulingStrategy {
   /**
    * @brief Constructor.
    **/
-  TopologicalSortStaticOrderStrategy() {
-  }
+  TopologicalSortStaticOrderStrategy(DAG<RelationalOperator, bool> *query_dag)
+      : topological_order_operators_(query_dag->getTopologicalSorting()),
+        current_index_(0) {}
 
   ~TopologicalSortStaticOrderStrategy() override {
   }
 
   int getNextOperator() override {
-    return -1;
+    return topological_order_operators_[current_index_];
   }
 
   void informCompletionOfOperator(std::size_t operator_index) override {
+    ++current_index_;
   }
 
  private:
+  const std::vector<std::size_t> topological_order_operators_;
+
+  std::size_t current_index_;
   DISALLOW_COPY_AND_ASSIGN(TopologicalSortStaticOrderStrategy);
 };
 
@@ -55,4 +61,4 @@ class TopologicalSortStaticOrderStrategy : public IntraQuerySchedulingStrategy {
 
 }  // namespace quickstep
 
-#endif  // QUICKSTEP_QUERY_EXECUTION_TOPOLOGICAL_SORT_STATIC_ORDER_STRATEGY_STRATEGY_HPP_
+#endif  // QUICKSTEP_QUERY_EXECUTION_TOPOLOGICAL_SORT_STATIC_ORDER_STRATEGY_HPP_

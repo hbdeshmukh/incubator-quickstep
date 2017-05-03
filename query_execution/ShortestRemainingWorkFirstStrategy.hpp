@@ -38,7 +38,6 @@ namespace quickstep {
  *  @{
  */
 
-
 class ShortestRemainingWorkFirstStrategy : public IntraQuerySchedulingStrategy {
  public:
   /**

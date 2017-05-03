@@ -30,6 +30,7 @@
 #include "catalog/CatalogTypedefs.hpp"
 #include "query_execution/LargestRemainingWorkFirstStrategy.hpp"
 #include "query_execution/QueryExecutionTypedefs.hpp"
+#include "query_execution/RandomOperatorStrategy.hpp"
 #include "query_execution/ShortestRemainingWorkFirstStrategy.hpp"
 #include "query_execution/TopologicalSortStaticOrderStrategy.hpp"
 #include "query_execution/WorkerMessage.hpp"
@@ -86,7 +87,12 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       break;
     }
     case kStaticOrderTopoSort: {
-      scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy());
+      scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy(query_dag_));
+      break;
+    }
+    case kRandomOperator: {
+      scheduling_strategy_.reset(new RandomOperatorStrategy(
+          query_dag_, workorders_container_.get(), *query_exec_state_));
       break;
     }
     default:
@@ -341,87 +347,6 @@ void QueryManagerSingleNode::printPendingWork() const {
     std::cout << i << ":" << workorders_container_->getNumTotalWorkOrders(i) << " ";
   }
   std::cout << std::endl;
-}
-
-void QueryManagerSingleNode::refillOperators() {
-  switch (FLAGS_scheduling_strategy) {
-    case kShortestRemainingWorkFirst: {
-      refillOperatorsHelper<true>();
-      break;
-    }
-    case kLargestRemainingWorkFirst: {
-      refillOperatorsHelper<false>();
-      break;
-    }
-    case kStaticOrderTopoSort: {
-      // Check if the current active operator has finished execution.
-      break;
-    }
-  }
-}
-
-void QueryManagerSingleNode::initializeState() {
-  next_active_op_index_ = 0;
-  switch (FLAGS_scheduling_strategy) {
-    case kShortestRemainingWorkFirst: // Fall through
-    case kLargestRemainingWorkFirst: {
-      // Populate the active operators list.
-      for (dag_node_index index = 0; index < num_operators_in_dag_; ++index) {
-        waiting_operators_.emplace_back(index);
-      }
-      break;
-    }
-    case kStaticOrderTopoSort: {
-      // A topologically sorted list of operators in the DAG.
-      std::vector<dag_node_index> topo_sorted_operators(
-          query_dag_->getTopologicalSorting());
-      DCHECK(!topo_sorted_operators.empty());
-      // Insert the first element of this vector in active_operators_ and insert
-      // others in the waiting_operators_ list.
-      active_operators_.emplace_back(topo_sorted_operators.front());
-      // Get the second element's iter.
-      auto waiting_operators_begin_it = topo_sorted_operators.begin() + 1;
-      waiting_operators_.insert(waiting_operators_.end(),
-                                waiting_operators_begin_it,
-                                topo_sorted_operators.end());
-      break;
-    }
-  }
-}
-
-template <bool shortest_remaining_work_first>
-void QueryManagerSingleNode::refillOperatorsHelper() {
-  const std::size_t original_active_operators_count = active_operators_.size();
-  std::size_t num_operators_checked = 0;
-  DCHECK_LT(active_operators_.size(), kMaxActiveOperators);
-  while (num_operators_checked < waiting_operators_.size() &&
-         active_operators_.size() < kMaxActiveOperators) {
-    // Get a new candidate operator.
-    std::pair<std::size_t, int> next_candidate_for_active_ops(0Lu, 0);
-    if (shortest_remaining_work_first) {
-      next_candidate_for_active_ops = getLowestWaitingOperatorNonZeroWork();
-    } else {
-      next_candidate_for_active_ops = getHighestWaitingOperator();
-    }
-    if (next_candidate_for_active_ops.second >= 0) {
-      // There's a candidate. Remove it from the waiting list and insert it
-      // in the active list.
-      dag_node_index next_op = next_candidate_for_active_ops.first;
-      waiting_operators_.erase(
-          std::remove(
-              waiting_operators_.begin(), waiting_operators_.end(), next_op),
-          waiting_operators_.end());
-      active_operators_.emplace_back(next_op);
-      ++num_operators_checked;
-    } else {
-      break;
-    }
-  }
-  if (original_active_operators_count != active_operators_.size()) {
-    // This means, we added new operators to the active operators' list.
-    // Reset the next active operator index to 0.
-    next_active_op_index_ = 0;
-  }
 }
 
 }  // namespace quickstep
