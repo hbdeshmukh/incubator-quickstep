@@ -26,6 +26,8 @@
 
 #include "catalog/CatalogDatabase.hpp"
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/IntraQuerySchedulingStrategy.hpp"
+#include "query_execution/TopologicalSortStaticOrderStrategy.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
 #include "relational_operators/RebuildWorkOrder.hpp"
@@ -61,6 +63,7 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
+  scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy(query_dag_->getTopologicalSorting()));
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
   for (const dag_node_index index : non_dependent_operators_) {
     if (!fetchNormalWorkOrders(index)) {
@@ -85,6 +88,33 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
 
   query_exec_state_->incrementNumQueuedWorkOrders(operator_index);
   return WorkerMessage::WorkOrderMessage(work_order, operator_index);
+}
+
+WorkerMessage* QueryManagerSingleNode::getNextWorkerMessageStrategic(
+    const dag_node_index start_operator_index, const numa_node_id numa_node) {
+  // We ignore the start_operator_index argument.
+  std::vector<dag_node_index> finished_operators;
+  int next_op_id = scheduling_strategy_->getNextOperator();
+  if (next_op_id >= 0) {
+    bool is_rebuild = false;
+    WorkOrder *next_workorder = workorders_container_->getNextWorkOrderForOperator(next_op_id, &is_rebuild);
+    if (next_workorder != nullptr) {
+      if (is_rebuild) {
+        return WorkerMessage::RebuildWorkOrderMessage(next_workorder, next_op_id);
+      } else {
+        return WorkerMessage::WorkOrderMessage(next_workorder, next_op_id);
+      }
+    }
+  }
+  // No WorkOrders are available right now.
+  return nullptr;
+}
+
+
+void QueryManagerSingleNode::markOperatorFinished(const QueryManagerBase::dag_node_index index) {
+  scheduling_strategy_->informCompletionOfOperator(index);
+
+  QueryManagerBase::markOperatorFinished(index);
 }
 
 bool QueryManagerSingleNode::fetchNormalWorkOrders(const dag_node_index index) {

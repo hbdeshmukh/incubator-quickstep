@@ -35,6 +35,7 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_ForemanDistributed ForemanDistributed.cpp ForemanDistributed.hpp)
 endif(ENABLE_DISTRIBUTED)
 add_library(quickstep_queryexecution_ForemanSingleNode ForemanSingleNode.cpp ForemanSingleNode.hpp)
+add_library(quickstep_queryexecution_IntraQuerySchedulingStrategy ../empty_src.cpp IntraQuerySchedulingStrategy.hpp)
 add_library(quickstep_queryexecution_PolicyEnforcerBase PolicyEnforcerBase.cpp PolicyEnforcerBase.hpp)
 if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_PolicyEnforcerDistributed PolicyEnforcerDistributed.cpp PolicyEnforcerDistributed.hpp)
@@ -60,6 +61,7 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_Shiftboss Shiftboss.cpp Shiftboss.hpp)
   add_library(quickstep_queryexecution_ShiftbossDirectory ../empty_src.cpp ShiftbossDirectory.hpp)
 endif(ENABLE_DISTRIBUTED)
+add_library(quickstep_queryexecution_TopologicalSortStaticOrderStrategy ../empty_src.cpp TopologicalSortStaticOrderStrategy.hpp)
 add_library(quickstep_queryexecution_WorkOrderProtosContainer ../empty_src.cpp WorkOrderProtosContainer.hpp)
 add_library(quickstep_queryexecution_WorkOrdersContainer WorkOrdersContainer.cpp WorkOrdersContainer.hpp)
 add_library(quickstep_queryexecution_Worker Worker.cpp Worker.hpp)
@@ -335,6 +337,9 @@ if (ENABLE_DISTRIBUTED)
                         quickstep_utility_Macros
                         tmb)
 endif(ENABLE_DISTRIBUTED)
+target_link_libraries(quickstep_queryexecution_TopologicalSortStaticOrderStrategy
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_WorkOrderProtosContainer
                       glog
                       quickstep_relationaloperators_WorkOrder_proto
@@ -385,6 +390,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_QueryExecutionUtil
                       quickstep_queryexecution_QueryManagerBase
                       quickstep_queryexecution_QueryManagerSingleNode
+                      quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_WorkOrderProtosContainer
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_Worker

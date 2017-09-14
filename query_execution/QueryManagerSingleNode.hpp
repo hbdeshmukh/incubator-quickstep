@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "catalog/CatalogTypedefs.hpp"
+#include "IntraQuerySchedulingStrategy.hpp"
 #include "query_execution/QueryContext.hpp"
 #include "query_execution/QueryExecutionState.hpp"
 #include "query_execution/QueryManagerBase.hpp"
@@ -97,6 +98,11 @@ class QueryManagerSingleNode final : public QueryManagerBase {
 
   std::size_t getQueryMemoryConsumptionBytes() const override;
 
+  WorkerMessage *getNextWorkerMessageStrategic(const dag_node_index start_operator_index, const numa_node_id numa_node);
+
+ protected:
+  void markOperatorFinished(const dag_node_index index) override;
+
  private:
   bool checkNormalExecutionOver(const dag_node_index index) const override {
     return (!workorders_container_->hasNormalWorkOrder(index) &&
@@ -143,6 +149,8 @@ class QueryManagerSingleNode final : public QueryManagerBase {
   std::unique_ptr<WorkOrdersContainer> workorders_container_;
 
   const CatalogDatabase &database_;
+
+  std::unique_ptr<IntraQuerySchedulingStrategy> scheduling_strategy_;
 
   DISALLOW_COPY_AND_ASSIGN(QueryManagerSingleNode);
 };

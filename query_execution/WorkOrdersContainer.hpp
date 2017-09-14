@@ -54,7 +54,7 @@ class WorkOrdersContainer {
    **/
   WorkOrdersContainer(const std::size_t num_operators,
                       const std::size_t num_numa_nodes)
-      : num_operators_(num_operators), num_numa_nodes_(num_numa_nodes) {
+      : num_operators_(num_operators), num_numa_nodes_(num_numa_nodes), normal_work_orders_policy_(num_operators) {
     DEBUG_ASSERT(num_operators != 0);
     for (std::size_t op = 0; op < num_operators; ++op) {
       normal_workorders_.push_back(
@@ -185,6 +185,22 @@ class WorkOrdersContainer {
       *operator_index = normal_work_orders_policy_.getOperatorIndexForNextWorkOrder();
       *is_rebuild = false;
       return normal_workorders_[*operator_index].getWorkOrder();
+    }
+
+    return nullptr;
+  }
+
+  WorkOrder* getNextWorkOrderForOperator(std::size_t operator_index, bool *is_rebuild) {
+    *is_rebuild = false;
+    if (hasRebuildWorkOrder(operator_index)) {
+      rebuild_work_orders_policy_.decrementWorkOrder(operator_index);
+      *is_rebuild = true;
+      return rebuild_workorders_[operator_index].getWorkOrder();
+    }
+
+    if (hasNormalWorkOrder(operator_index)) {
+      normal_work_orders_policy_.decrementWorkOrder(operator_index);
+      return normal_workorders_[operator_index].getWorkOrder();
     }
 
     return nullptr;
@@ -537,7 +553,7 @@ class WorkOrdersContainer {
   PtrVector<OperatorWorkOrdersContainer> normal_workorders_;
   PtrVector<OperatorWorkOrdersContainer> rebuild_workorders_;
 
-  LifoWorkOrderSelectionPolicy normal_work_orders_policy_;
+  HashBasedWorkOrderSelectionPolicy normal_work_orders_policy_;
   FifoWorkOrderSelectionPolicy rebuild_work_orders_policy_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkOrdersContainer);
