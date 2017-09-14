@@ -102,6 +102,7 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessageStrategic(
       if (is_rebuild) {
         return WorkerMessage::RebuildWorkOrderMessage(next_workorder, next_op_id);
       } else {
+        query_exec_state_->incrementNumQueuedWorkOrders(next_op_id);
         return WorkerMessage::WorkOrderMessage(next_workorder, next_op_id);
       }
     }
