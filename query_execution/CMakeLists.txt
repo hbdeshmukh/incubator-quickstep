@@ -57,6 +57,7 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_QueryManagerDistributed QueryManagerDistributed.cpp QueryManagerDistributed.hpp)
 endif(ENABLE_DISTRIBUTED)
 add_library(quickstep_queryexecution_QueryManagerSingleNode QueryManagerSingleNode.cpp QueryManagerSingleNode.hpp)
+add_library(quickstep_queryexecution_RandomOperatorStrategy ../empty_src.cpp RandomOperatorStrategy.hpp)
 if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_Shiftboss Shiftboss.cpp Shiftboss.hpp)
   add_library(quickstep_queryexecution_ShiftbossDirectory ../empty_src.cpp ShiftbossDirectory.hpp)
@@ -309,6 +310,12 @@ target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_utility_DAG
                       quickstep_utility_Macros
                       tmb)
+target_link_libraries(quickstep_queryexecution_RandomOperatorStrategy
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_queryexecution_QueryExecutionState
+                      quickstep_queryexecution_WorkOrdersContainer
+                      quickstep_utility_DAG
+                      quickstep_utility_Macros)
 if (ENABLE_DISTRIBUTED)
   target_link_libraries(quickstep_queryexecution_Shiftboss
                         glog
@@ -390,6 +397,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_QueryExecutionUtil
                       quickstep_queryexecution_QueryManagerBase
                       quickstep_queryexecution_QueryManagerSingleNode
+                      quickstep_queryexecution_RandomOperatorStrategy
                       quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_WorkOrderProtosContainer
                       quickstep_queryexecution_WorkOrdersContainer
