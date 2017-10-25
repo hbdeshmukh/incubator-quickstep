@@ -63,10 +63,10 @@ ExecutionDAGVisualizer::ExecutionDAGVisualizer(const QueryPlan &plan) {
       typename std::underlying_type<RelationalOperator::OperatorType>::type;
 
   // Do not display these relational operators in the graph.
-  const std::unordered_set<ROEnumType> no_display_op_types =
-      { RelationalOperator::kDestroyAggregationState,
+  const std::unordered_set<ROEnumType> no_display_op_types = {RelationalOperator::kSample};
+      /*{ RelationalOperator::kDestroyAggregationState,
         RelationalOperator::kDestroyHash,
-        RelationalOperator::kDropTable };
+        RelationalOperator::kDropTable };*/
 
   const auto &dag = plan.getQueryPlanDAG();
   num_nodes_ = dag.size();

@@ -27,6 +27,8 @@
 #include "catalog/CatalogDatabase.hpp"
 #include "catalog/CatalogTypedefs.hpp"
 #include "query_execution/IntraQuerySchedulingStrategy.hpp"
+#include "query_execution/QueryExecutionTypedefs.hpp"
+#include "query_execution/RandomOperatorStrategy.hpp"
 #include "query_execution/TopologicalSortStaticOrderStrategy.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
@@ -43,6 +45,11 @@
 namespace quickstep {
 
 class WorkOrder;
+
+DEFINE_int32(scheduling_strategy,
+              0,
+              "The scheduling strategy to be used. One of \"static "
+              "ordering topological sort\" and \"random\".");
 
 QueryManagerSingleNode::QueryManagerSingleNode(
     const tmb::client_id foreman_client_id,
@@ -63,7 +70,19 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
-  scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy(query_dag_->getTopologicalSorting()));
+  switch(FLAGS_scheduling_strategy) {
+    case kStaticOrderTopoSort: {
+      scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy(query_dag_->getTopologicalSorting()));
+      break;
+    }
+    case kRandomOperator: {
+      scheduling_strategy_.reset(new RandomOperatorStrategy(query_dag_, workorders_container_.get(), *query_exec_state_));
+      break;
+    }
+    default: {
+      LOG(FATAL) << "Invalid input for scheduling strategy flag";
+    }
+  }
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
   for (const dag_node_index index : non_dependent_operators_) {
     if (!fetchNormalWorkOrders(index)) {

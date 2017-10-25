@@ -145,6 +145,8 @@ target_link_libraries(quickstep_queryexecution_ForemanSingleNode
                       quickstep_utility_Macros
                       tmb
                       ${GFLAGS_LIB_NAME})
+target_link_libraries(quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_PolicyEnforcerBase
                       glog
                       quickstep_catalog_CatalogDatabase
@@ -297,9 +299,13 @@ endif(ENABLE_DISTRIBUTED)
 target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_catalog_CatalogDatabase
                       quickstep_catalog_CatalogTypedefs
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
                       quickstep_queryexecution_QueryContext
                       quickstep_queryexecution_QueryExecutionState
+                      quickstep_queryexecution_QueryExecutionTypedefs
                       quickstep_queryexecution_QueryManagerBase
+                      quickstep_queryexecution_RandomOperatorStrategy
+                      quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_WorkerMessage
                       quickstep_queryoptimizer_QueryHandle
@@ -386,6 +392,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_ExecutionStats
                       quickstep_queryexecution_ForemanBase
                       quickstep_queryexecution_ForemanSingleNode
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
                       quickstep_queryexecution_PolicyEnforcerBase
                       quickstep_queryexecution_PolicyEnforcerSingleNode
                       quickstep_queryexecution_ProbabilityStore
