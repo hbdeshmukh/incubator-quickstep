@@ -315,7 +315,8 @@ target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_storage_StorageBlock
                       quickstep_utility_DAG
                       quickstep_utility_Macros
-                      tmb)
+                      tmb
+                      ${GFLAGS_LIB_NAME})
 target_link_libraries(quickstep_queryexecution_RandomOperatorStrategy
                       quickstep_queryexecution_IntraQuerySchedulingStrategy
                       quickstep_queryexecution_QueryExecutionState

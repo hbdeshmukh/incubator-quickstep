@@ -38,6 +38,7 @@
 #include "storage/StorageBlock.hpp"
 #include "utility/DAG.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 #include "tmb/id_typedefs.h"
