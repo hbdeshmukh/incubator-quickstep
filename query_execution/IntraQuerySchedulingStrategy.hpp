@@ -52,12 +52,11 @@ class IntraQuerySchedulingStrategy {
    **/
   virtual void informCompletionOfOperator(std::size_t operator_index) = 0;
 
-  protected:
-   IntraQuerySchedulingStrategy() {
-   }
+ protected:
+  IntraQuerySchedulingStrategy() {}
 
-  private:
-   DISALLOW_COPY_AND_ASSIGN(IntraQuerySchedulingStrategy);
+ private:
+  DISALLOW_COPY_AND_ASSIGN(IntraQuerySchedulingStrategy);
 };
 
 /** @} */

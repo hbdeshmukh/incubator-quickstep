@@ -30,6 +30,7 @@
 #include "query_execution/QueryExecutionTypedefs.hpp"
 #include "query_execution/RandomOperatorStrategy.hpp"
 #include "query_execution/TopologicalSortStaticOrderStrategy.hpp"
+#include "query_execution/WeightedRandomWorkOrderStrategy.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
 #include "relational_operators/RebuildWorkOrder.hpp"
@@ -50,7 +51,8 @@ class WorkOrder;
 DEFINE_int32(scheduling_strategy,
               0,
               "The scheduling strategy to be used. One of \"static "
-              "ordering topological sort\" and \"random\".");
+              "ordering topological sort\", \"random operator\", and "
+              "\"random operator weighted by the work orders count\"");
 
 QueryManagerSingleNode::QueryManagerSingleNode(
     const tmb::client_id foreman_client_id,
@@ -71,13 +73,20 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
-  switch(FLAGS_scheduling_strategy) {
+  switch (FLAGS_scheduling_strategy) {
     case kStaticOrderTopoSort: {
-      scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy(query_dag_->getTopologicalSorting()));
+      scheduling_strategy_.reset(new TopologicalSortStaticOrderStrategy(
+          query_dag_->getTopologicalSorting()));
       break;
     }
     case kRandomOperator: {
-      scheduling_strategy_.reset(new RandomOperatorStrategy(query_dag_, workorders_container_.get(), *query_exec_state_));
+      scheduling_strategy_.reset(new RandomOperatorStrategy(
+          query_dag_, workorders_container_.get(), *query_exec_state_));
+      break;
+    }
+    case kWeightedWorkOrder: {
+      scheduling_strategy_.reset(new WeightedRandomWorkOrderStrategy(
+          query_dag_, workorders_container_.get(), *query_exec_state_));
       break;
     }
     default: {

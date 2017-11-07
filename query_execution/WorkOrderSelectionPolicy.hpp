@@ -155,14 +155,14 @@ class LifoWorkOrderSelectionPolicy final : public WorkOrderSelectionPolicy {
 
 class HashBasedWorkOrderSelectionPolicy final : public WorkOrderSelectionPolicy {
  public:
-  HashBasedWorkOrderSelectionPolicy(const std::size_t num_operators) {
+  explicit HashBasedWorkOrderSelectionPolicy(const std::size_t num_operators) {
     for (std::size_t i = 0; i < num_operators; ++i) {
       workorders_count_[i] = 0;
     }
   }
 
   bool hasWorkOrder() const override {
-    for (auto count_pair: workorders_count_) {
+    for (auto count_pair : workorders_count_) {
       if (hasWorkOrderHelper(count_pair.first)) {
         return true;
       }
@@ -188,7 +188,6 @@ class HashBasedWorkOrderSelectionPolicy final : public WorkOrderSelectionPolicy 
   }
 
  private:
-
   bool hasWorkOrderHelper(const std::size_t operator_index) const {
     DCHECK_LE(operator_index, workorders_count_.size());
     return workorders_count_.at(operator_index) > 0;

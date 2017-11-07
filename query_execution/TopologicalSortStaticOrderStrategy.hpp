@@ -39,7 +39,8 @@ class TopologicalSortStaticOrderStrategy : public IntraQuerySchedulingStrategy {
    *
    * @param query_dag The query plan DAG.
    **/
-  TopologicalSortStaticOrderStrategy(const std::vector<std::size_t> &topologically_ordered_operators)
+  explicit TopologicalSortStaticOrderStrategy(
+      const std::vector<std::size_t> &topologically_ordered_operators)
       : topological_order_operators_(topologically_ordered_operators),
         current_index_(0) {}
 

@@ -134,8 +134,9 @@ struct WorkOrderTimeEntry {
 typedef std::unordered_map<std::size_t, std::vector<WorkOrderTimeEntry>> WorkOrderTimeRecorder;
 
 enum SchedulingStrategy {
-  kStaticOrderTopoSort =0,
-  kRandomOperator
+  kStaticOrderTopoSort = 0,
+  kRandomOperator,
+  kWeightedWorkOrder
 };
 
 /** @} */

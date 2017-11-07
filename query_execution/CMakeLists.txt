@@ -63,6 +63,7 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_ShiftbossDirectory ../empty_src.cpp ShiftbossDirectory.hpp)
 endif(ENABLE_DISTRIBUTED)
 add_library(quickstep_queryexecution_TopologicalSortStaticOrderStrategy ../empty_src.cpp TopologicalSortStaticOrderStrategy.hpp)
+add_library(quickstep_queryexecution_WeightedRandomWorkOrderStrategy ../empty_src.cpp WeightedRandomWorkOrderStrategy.hpp)
 add_library(quickstep_queryexecution_WorkOrderProtosContainer ../empty_src.cpp WorkOrderProtosContainer.hpp)
 add_library(quickstep_queryexecution_WorkOrdersContainer WorkOrdersContainer.cpp WorkOrdersContainer.hpp)
 add_library(quickstep_queryexecution_Worker Worker.cpp Worker.hpp)
@@ -306,6 +307,7 @@ target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_queryexecution_QueryManagerBase
                       quickstep_queryexecution_RandomOperatorStrategy
                       quickstep_queryexecution_TopologicalSortStaticOrderStrategy
+                      quickstep_queryexecution_WeightedRandomWorkOrderStrategy
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_WorkerMessage
                       quickstep_queryoptimizer_QueryHandle
@@ -353,6 +355,13 @@ if (ENABLE_DISTRIBUTED)
 endif(ENABLE_DISTRIBUTED)
 target_link_libraries(quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_utility_Macros)
+target_link_libraries(quickstep_queryexecution_WeightedRandomWorkOrderStrategy
+                      quickstep_queryexecution_IntraQuerySchedulingStrategy
+                      quickstep_queryexecution_QueryExecutionState
+                      quickstep_queryexecution_RandomOperatorStrategy
+                      quickstep_queryexecution_WorkOrdersContainer
+                      quickstep_utility_DAG
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_WorkOrderProtosContainer
                       glog
@@ -407,6 +416,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_queryexecution_RandomOperatorStrategy
                       quickstep_queryexecution_TopologicalSortStaticOrderStrategy
+                      quickstep_queryexecution_WeightedRandomWorkOrderStrategy
                       quickstep_queryexecution_WorkOrderProtosContainer
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_Worker
