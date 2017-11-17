@@ -259,6 +259,7 @@ target_link_libraries(quickstep_utility_DAG
 target_link_libraries(quickstep_utility_DisjointTreeForest
                       glog)
 target_link_libraries(quickstep_utility_ExecutionDAGVisualizer
+                      glog
                       quickstep_catalog_CatalogRelation
                       quickstep_catalog_CatalogRelationSchema
                       quickstep_queryexecution_QueryExecutionTypedefs

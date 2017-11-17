@@ -47,8 +47,20 @@ DEFINE_bool(profile_and_report_workorder_perf, false,
     "normal work orders and report it at the end of query execution.");
 
 PolicyEnforcerBase::PolicyEnforcerBase(CatalogDatabaseLite *catalog_database)
-    : catalog_database_(catalog_database),
-      profile_individual_workorders_(FLAGS_profile_and_report_workorder_perf || FLAGS_visualize_execution_dag) {
+    : catalog_database_(catalog_database) {
+}
+
+const std::vector<WorkOrderTimeEntry>& PolicyEnforcerBase::getProfilingResults(
+    const std::size_t query_id) const {
+  DCHECK(FLAGS_profile_and_report_workorder_perf);
+  DCHECK(hasProfilingResults(query_id));
+  return workorder_time_recorder_.at(query_id);
+}
+
+const std::vector<OperatorStatsEntry>& PolicyEnforcerBase::getAllOperatorStats(const std::size_t query_id) const {
+  DCHECK(FLAGS_visualize_execution_dag);
+  DCHECK(hasOperatorStats(query_id));
+  return operator_stats_recorder_.at(query_id);
 }
 
 void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
@@ -64,8 +76,10 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
                                  tagged_message.message_bytes()));
       decrementNumQueuedWorkOrders(proto);
 
-      if (profile_individual_workorders_) {
+      if (FLAGS_profile_and_report_workorder_perf) {
         recordTimeForWorkOrder(proto);
+      } else if (FLAGS_visualize_execution_dag) {
+        updateOperatorStats(proto);
       }
 
       query_id = proto.query_id();
@@ -168,6 +182,34 @@ bool PolicyEnforcerBase::admitQueries(
     }
   }
   return all_queries_admitted;
+}
+
+void PolicyEnforcerBase::updateOperatorStats(const serialization::WorkOrderCompletionMessage &proto) {
+  const std::size_t query_id = proto.query_id();
+  const std::size_t operator_id = proto.operator_index();
+  const bool first_workorder_from_query = (operator_stats_recorder_.find(query_id) == operator_stats_recorder_.end());
+  if (first_workorder_from_query) {
+    // Initialize the OperatorStatsEntry for all the operators.
+    const std::size_t num_operators_in_query =
+        admitted_queries_[query_id]->query_handle()->getQueryPlan().getQueryPlanDAG().size();
+    for (std::size_t op_id = 0; op_id < num_operators_in_query; ++op_id) {
+      operator_stats_recorder_[query_id].emplace_back(op_id);
+    }
+  }
+  std::vector<OperatorStatsEntry> &operator_stats_entries
+      = operator_stats_recorder_[query_id];
+  const std::size_t workorder_execution_time = proto.execution_end_time() - proto.execution_start_time();
+  operator_stats_entries[operator_id].slowest_execution_time_
+      = std::max(operator_stats_entries[operator_id].slowest_execution_time_, workorder_execution_time);
+  operator_stats_entries[operator_id].fastest_execution_time_
+      = std::min(operator_stats_entries[operator_id].fastest_execution_time_, workorder_execution_time);
+  operator_stats_entries[operator_id].latest_end_time_ =
+      std::max(proto.execution_end_time(), operator_stats_entries[operator_id].latest_end_time_);
+  operator_stats_entries[operator_id].earliest_start_time_ =
+      std::min(proto.execution_start_time(), operator_stats_entries[operator_id].earliest_start_time_);
+  operator_stats_entries[operator_id].num_workorders_
+    = operator_stats_entries[operator_id].num_workorders_ + 1;
+  operator_stats_entries[operator_id].running_sum_execution_times_ += workorder_execution_time;
 }
 
 void PolicyEnforcerBase::recordTimeForWorkOrder(

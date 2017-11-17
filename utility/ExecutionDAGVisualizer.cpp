@@ -211,6 +211,85 @@ ExecutionDAGVisualizer::ExecutionDAGVisualizer(const QueryPlan &plan) {
 }
 
 void ExecutionDAGVisualizer::bindProfilingStats(
+    const std::vector<OperatorStatsEntry> &operator_stats) {
+  const auto overall_start_time_iter = std::min_element(operator_stats.begin(), operator_stats.end(),
+                                                        [](const OperatorStatsEntry &x, const OperatorStatsEntry &y) {
+                                                          return x.earliest_start_time_ < y.earliest_start_time_;
+                                                        });
+  DCHECK(operator_stats.end() != overall_start_time_iter);
+  const std::size_t overall_start_time = overall_start_time_iter->earliest_start_time_;
+
+  const auto overall_end_time_iter = std::max_element(operator_stats.begin(), operator_stats.end(),
+                                                      [](const OperatorStatsEntry &x, const OperatorStatsEntry &y) {
+                                                        return x.latest_end_time_ < y.latest_end_time_;
+                                                      });
+  DCHECK(operator_stats.end() != overall_end_time_iter);
+  const std::size_t overall_end_time = overall_end_time_iter->latest_end_time_;
+  const double overall_span = overall_end_time - overall_start_time;
+  double total_time_elapsed = 0;
+  for (const OperatorStatsEntry &s : operator_stats) {
+    total_time_elapsed += s.running_sum_execution_times_;
+  }
+
+  std::vector<double> time_percentage(num_nodes_, 0);
+  std::vector<double> span_percentage(num_nodes_, 0);
+  double max_percentage = 0;
+  for (std::size_t i = 0; i < num_nodes_; ++i) {
+    time_percentage[i] = operator_stats[i].running_sum_execution_times_ / total_time_elapsed * 100;
+    span_percentage[i] = (operator_stats[i].latest_end_time_ - operator_stats[i].earliest_start_time_) / overall_span * 100;
+    max_percentage = std::max(max_percentage, time_percentage[i] + span_percentage[i]);
+  }
+
+  for (std::size_t node_index = 0; node_index < num_nodes_; ++node_index) {
+    if (nodes_.find(node_index) == nodes_.end()) {
+      continue;
+    }
+    NodeInfo &node_info = nodes_[node_index];
+    const OperatorStatsEntry &stats = operator_stats[node_index];
+    const double hue =
+        (time_percentage[node_index] + span_percentage[node_index]) / max_percentage;
+    node_info.color = std::to_string(hue) + " " + std::to_string(hue) + " 1.0";
+
+    if (overall_start_time == 0) {
+      node_info.labels.emplace_back(
+          "span: " +
+              std::to_string((stats.latest_end_time_ - stats.earliest_start_time_) / 1000) + "ms");
+    } else {
+      node_info.labels.emplace_back(
+          "span: [" +
+              std::to_string((stats.earliest_start_time_ - overall_start_time) / 1000) + "ms, " +
+              std::to_string((stats.latest_end_time_ - overall_start_time) / 1000) + "ms] (" +
+              FormatDigits(span_percentage[node_index], 2) + "%)");
+    }
+    node_info.labels.emplace_back(
+        "total CPU time: " +
+            std::to_string(stats.running_sum_execution_times_ / 1000) + "ms (" +
+            FormatDigits(time_percentage[node_index], 2) + "%)");
+
+    const double concurrency =
+        static_cast<double>(stats.running_sum_execution_times_) / (stats.latest_end_time_ - stats.earliest_start_time_);
+    node_info.labels.emplace_back(
+        "effective concurrency: " + FormatDigits(concurrency, 2));
+
+    node_info.labels.emplace_back("Work orders count: " + std::to_string(stats.num_workorders_));
+    double mean_workorder_exec_time = 0;
+    if (stats.num_workorders_ > 0) {
+      mean_workorder_exec_time =
+          stats.running_sum_execution_times_ /
+              (1000 * static_cast<float>(stats.num_workorders_));
+    } else {
+      mean_workorder_exec_time = 0;
+    }
+    node_info.labels.emplace_back(
+        "Work order execution times [avg, min, max]: [" +
+            FormatDigits(mean_workorder_exec_time, 2) + ", " +
+            FormatDigits(stats.fastest_execution_time_/1000.0, 2) + ", " +
+            FormatDigits(stats.slowest_execution_time_/1000.0, 2) + "] ms");
+  }
+}
+
+
+void ExecutionDAGVisualizer::bindProfilingStats(
   const std::vector<WorkOrderTimeEntry> &execution_time_records) {
   std::vector<std::size_t> time_start(num_nodes_, std::numeric_limits<std::size_t>::max());
   std::vector<std::size_t> time_end(num_nodes_, 0);
@@ -283,7 +362,7 @@ void ExecutionDAGVisualizer::bindProfilingStats(
       }
 
       node_info.labels.emplace_back(
-          "total: " +
+          "total CPU time: " +
           std::to_string(relop_elapsed_time / 1000) + "ms (" +
           FormatDigits(time_percentage[node_index], 2) + "%)");
 

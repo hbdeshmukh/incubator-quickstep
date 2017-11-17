@@ -133,6 +133,30 @@ struct WorkOrderTimeEntry {
 // Value = vector of work order profiling records.
 typedef std::unordered_map<std::size_t, std::vector<WorkOrderTimeEntry>> WorkOrderTimeRecorder;
 
+class OperatorStatsEntry {
+ public:
+  OperatorStatsEntry(const std::size_t operator_id)
+      : operator_id_(operator_id),
+        num_workorders_(0),
+        fastest_execution_time_(std::numeric_limits<std::size_t>::max()),
+        slowest_execution_time_(0),
+        earliest_start_time_(std::numeric_limits<std::size_t>::max()),
+        latest_end_time_(0),
+        running_sum_execution_times_(0) {}
+
+  const std::size_t operator_id_;
+  std::size_t num_workorders_;
+  std::size_t fastest_execution_time_;  // Execution time of the fastest workorder.
+  std::size_t slowest_execution_time_;  // Execution time of the slowest workorder.
+  std::size_t earliest_start_time_;
+  std::size_t latest_end_time_;
+  std::size_t running_sum_execution_times_;  // The running sum of all the execution times of the work orders.
+};
+
+// Key = query ID.
+// Value = vector of operators' stats.
+typedef std::unordered_map<std::size_t, std::vector<OperatorStatsEntry>> OperatorStatsRecorder;
+
 /** @} */
 
 }  // namespace quickstep

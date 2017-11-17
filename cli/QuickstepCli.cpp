@@ -413,10 +413,17 @@ int main(int argc, char* argv[]) {
             foreman.printWorkOrderProfilingResults(query_id, stdout);
           }
           if (quickstep::FLAGS_visualize_execution_dag) {
-            const auto *profiling_stats =
-                foreman.getWorkOrderProfilingResults(query_id);
-            if (profiling_stats) {
-              dag_visualizer->bindProfilingStats(*profiling_stats);
+            if (quickstep::FLAGS_profile_and_report_workorder_perf) {
+              const auto *profiling_stats =
+                  foreman.getWorkOrderProfilingResults(query_id);
+              if (profiling_stats) {
+                dag_visualizer->bindProfilingStats(*profiling_stats);
+              }
+            } else {
+              const auto *operator_stats = foreman.getOperatorStats(query_id);
+              if (operator_stats) {
+                dag_visualizer->bindProfilingStats(*operator_stats);
+              }
             }
             std::cerr << "\n" << dag_visualizer->toDOT() << "\n";
           }

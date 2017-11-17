@@ -119,10 +119,21 @@ class PolicyEnforcerBase {
    *       For example, CreateTable and CreateIndex do not produce work orders,
    *       so they do not have profiling results.
    *
+   * @param query_id The ID of the query.
+   *
    * @return True if it has profiling results, otherwise false.
    **/
   bool hasProfilingResults(const std::size_t query_id) const {
     return workorder_time_recorder_.find(query_id) != workorder_time_recorder_.end();
+  }
+
+  /**
+   * @brief Check if the given query has its operator stats.
+   * @param query_id The ID of the query.
+   * @return True if the operator statistics are present, false otherwise.
+   */
+  bool hasOperatorStats(const std::size_t query_id) const {
+    return operator_stats_recorder_.find(query_id) != operator_stats_recorder_.end();
   }
 
   /**
@@ -137,12 +148,16 @@ class PolicyEnforcerBase {
    *
    * @return A vector of records, each being a single profiling entry.
    **/
-  inline const std::vector<WorkOrderTimeEntry>& getProfilingResults(
-      const std::size_t query_id) const {
-    DCHECK(profile_individual_workorders_);
-    DCHECK(hasProfilingResults(query_id));
-    return workorder_time_recorder_.at(query_id);
-  }
+  const std::vector<WorkOrderTimeEntry>& getProfilingResults(
+      const std::size_t query_id) const;
+
+  /**
+   * @brief Get the stats of all the operators in the query.
+   * @param query_id The ID of the query.
+   * @return A vector of records, each of which is a statistics of the
+   *         exection of an operator.
+   */
+  const std::vector<OperatorStatsEntry>& getAllOperatorStats(const std::size_t query_id) const;
 
   /**
    * @brief Admit a query to the system.
@@ -176,8 +191,6 @@ class PolicyEnforcerBase {
 
   CatalogDatabaseLite *catalog_database_;
 
-  const bool profile_individual_workorders_;
-
   // Key = query ID, value = QueryManagerBase* for the key query.
   std::unordered_map<std::size_t, std::unique_ptr<QueryManagerBase>> admitted_queries_;
 
@@ -185,6 +198,7 @@ class PolicyEnforcerBase {
   std::queue<QueryHandle*> waiting_queries_;
 
   WorkOrderTimeRecorder workorder_time_recorder_;
+  OperatorStatsRecorder operator_stats_recorder_;
 
  private:
   /**
@@ -197,6 +211,7 @@ class PolicyEnforcerBase {
       const serialization::WorkOrderCompletionMessage &proto) = 0;
 
   DISALLOW_COPY_AND_ASSIGN(PolicyEnforcerBase);
+  void updateOperatorStats(const serialization::WorkOrderCompletionMessage &proto);
 };
 
 /** @} */

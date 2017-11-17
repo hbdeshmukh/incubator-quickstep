@@ -92,6 +92,18 @@ class ForemanBase : public Thread {
   }
 
   /**
+   * @brief Get the statistics of the operators execution for a given query.
+   * @param query_id The ID of the query.
+   * @return A vector of records, each of which is the statistics of an
+   *         operator's execution.
+   */
+  const std::vector<OperatorStatsEntry>* getOperatorStats(const std::size_t query_id) const {
+    return policy_enforcer_->hasOperatorStats(query_id)
+           ? &(policy_enforcer_->getAllOperatorStats(query_id))
+           : nullptr;
+  }
+
+  /**
    * @brief Get the TMB client ID of Foreman thread.
    *
    * @return TMB client ID of foreman thread.

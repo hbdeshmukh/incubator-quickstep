@@ -25,11 +25,15 @@
 #include <string>
 #include <vector>
 
+#include <query_execution/QueryExecutionTypedefs.hpp>
 #include "utility/Macros.hpp"
+
+#include "glog/logging.h"
 
 namespace quickstep {
 
 class QueryPlan;
+class OperatorStatsEntry;
 struct WorkOrderTimeEntry;
 
 /** \addtogroup Utility
@@ -60,10 +64,25 @@ class ExecutionDAGVisualizer {
    * @brief Summarize the execution timing stats and bind the stats to the
    *        corresponding relational operators in the execution plan.
    *
+   * @note  Use this function when we are recording individual work order's
+   *        execution statistics.
+   *
    * @param execution_time_records The profiled timing records of execution.
    */
   void bindProfilingStats(
       const std::vector<WorkOrderTimeEntry> &execution_time_records);
+
+  /**
+   * @brief Summarize the execution timing stats and bind the stats to the
+   *        corresponding relational operators in the execution plan.
+   *
+   * @note  Use this function when we are recording only operator level
+   *        execution statistics.
+   *
+   * @param operator_stats The profiled statistics of the operators in the
+   *        query.
+   */
+  void bindProfilingStats(const std::vector<OperatorStatsEntry> &operator_stats);
 
   /**
    * @brief Get the string represenation of the visualized execution plan
