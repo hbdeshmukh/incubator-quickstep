@@ -29,6 +29,7 @@ if (ENABLE_DISTRIBUTED)
   add_library(quickstep_queryexecution_BlockLocator BlockLocator.cpp BlockLocator.hpp)
   add_library(quickstep_queryexecution_BlockLocatorUtil BlockLocatorUtil.cpp BlockLocatorUtil.hpp)
 endif(ENABLE_DISTRIBUTED)
+add_library(quickstep_queryexecution_DAGAnalyzer DAGAnalyzer.cpp DAGAnalyzer.hpp)
 add_library(quickstep_queryexecution_ExecutionStats ../empty_src.cpp ExecutionStats.hpp)
 add_library(quickstep_queryexecution_ForemanBase ../empty_src.cpp ForemanBase.hpp)
 if (ENABLE_DISTRIBUTED)
@@ -91,6 +92,12 @@ if (ENABLE_DISTRIBUTED)
                         quickstep_storage_StorageBlockInfo
                         tmb)
 endif(ENABLE_DISTRIBUTED)
+target_link_libraries(quickstep_queryexecution_DAGAnalyzer
+                      glog
+                      quickstep_queryexecution_Pipeline
+                      quickstep_relationaloperators_RelationalOperator
+                      quickstep_utility_DAG
+                      quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_ForemanBase
                       glog
                       quickstep_queryexecution_PolicyEnforcerBase
@@ -371,6 +378,7 @@ target_link_libraries(quickstep_queryexecution_WorkerSelectionPolicy
 add_library(quickstep_queryexecution ../empty_src.cpp QueryExecutionModule.hpp)
 target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_AdmitRequestMessage
+                      quickstep_queryexecution_DAGAnalyzer
                       quickstep_queryexecution_ExecutionStats
                       quickstep_queryexecution_ForemanBase
                       quickstep_queryexecution_ForemanSingleNode
@@ -429,6 +437,10 @@ if (ENABLE_DISTRIBUTED)
                         ${LIBS})
   add_test(BlockLocator_unittest BlockLocator_unittest)
 endif(ENABLE_DISTRIBUTED)
+
+add_executable(DAGAnalyzer_unittest
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/DAGAnalyzer_unittest.cpp")
+add_test(DAGAnalyzer_unittest DAGAnalyzer_unittest)
 
 add_executable(ProbabilityStore_unittest
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/ProbabilityStore_unittest.cpp")
