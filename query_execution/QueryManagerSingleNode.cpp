@@ -26,6 +26,7 @@
 
 #include "catalog/CatalogDatabase.hpp"
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/DAGAnalyzer.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
 #include "relational_operators/RebuildWorkOrder.hpp"
@@ -34,11 +35,15 @@
 #include "storage/StorageBlock.hpp"
 #include "utility/DAG.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 #include "tmb/id_typedefs.h"
 
 namespace quickstep {
+
+DEFINE_bool(print_pipelines, false,
+            "Visualize the query plans as set of connected pipelines");
 
 class WorkOrder;
 
@@ -60,8 +65,12 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       bus_)),
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
+      dag_analyzer_(new DAGAnalyzer(query_dag_)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
+  if (FLAGS_print_pipelines) {
+    dag_analyzer_->visualizePipelines();
+  }
   for (const dag_node_index index : non_dependent_operators_) {
     if (!fetchNormalWorkOrders(index)) {
       DCHECK(!checkRebuildRequired(index) || initiateRebuild(index));
