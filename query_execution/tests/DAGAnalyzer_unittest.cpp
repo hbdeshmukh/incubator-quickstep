@@ -109,4 +109,42 @@ TEST(DAGAnalyzerTest, VShapedDAGTest) {
   analyzer.visualizePipelines();
 }
 
+TEST(DAGAnalyzerTest, GenerateSequenceTest) {
+  // Test for three nodes in shape V.
+  std::unique_ptr<DAG<RelationalOperator, bool>> dag;
+  dag.reset(new DAG<RelationalOperator, bool>());
+  const std::size_t n0 = dag->createNode(new MockOperator(false, false, "n0"));
+  const std::size_t n1 = dag->createNode(new MockOperator(false, false, "n1"));
+  const std::size_t n2 = dag->createNode(new MockOperator(false, false, "n2"));
+  const std::size_t n3 = dag->createNode(new MockOperator(false, false, "n3"));
+  const std::size_t n4 = dag->createNode(new MockOperator(false, false, "n4"));
+  const std::size_t n5 = dag->createNode(new MockOperator(false, false, "n5"));
+  const std::size_t n6 = dag->createNode(new MockOperator(false, false, "n6"));
+
+  dag->createLink(n0, n2, false);
+  dag->createLink(n1, n2, true);
+  dag->createLink(n2, n4, true);
+  dag->createLink(n3, n4, false);
+  dag->createLink(n4, n5, false);
+  dag->createLink(n5, n6, true);
+  DAGAnalyzer analyzer(dag.get());
+  EXPECT_EQ(6u, analyzer.getNumPipelines());
+
+  std::cout << "Sorted order\n";
+  std::vector<std::size_t> sorted_order(dag->getTopologicalSorting());
+  for (auto i : sorted_order) {
+    std::cout << i << " - ";
+  }
+  std::cout << std::endl;
+  std::stack<std::size_t> sequence;
+  analyzer.generatePipelineSequence(5, &sequence);
+
+  while (!sequence.empty()) {
+    std::cout << sequence.top() << " ---";
+    sequence.pop();
+  }
+  std::cout << std::endl;
+  analyzer.visualizePipelines();
+}
+
 }  // namespace quickstep

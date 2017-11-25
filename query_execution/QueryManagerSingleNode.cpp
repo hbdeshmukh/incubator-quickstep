@@ -20,6 +20,7 @@
 #include "query_execution/QueryManagerSingleNode.hpp"
 
 #include <cstddef>
+#include <queue>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -70,6 +71,19 @@ QueryManagerSingleNode::QueryManagerSingleNode(
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
   if (FLAGS_print_pipelines) {
     dag_analyzer_->visualizePipelines();
+    std::queue<std::size_t> essential_pipelines_sequence;
+    dag_analyzer_->generatePipelineSequence(28, &essential_pipelines_sequence);
+    while (!essential_pipelines_sequence.empty()) {
+      std::cout << essential_pipelines_sequence.front() << " - ";
+      essential_pipelines_sequence.pop();
+    }
+    std::cout << std::endl;
+    std::vector<std::size_t> final_sequence = dag_analyzer_->getFinalPipelineSequence();
+    std::cout << "Final sequence\n";
+    for (auto i : final_sequence) {
+      std::cout << i << " : ";
+    }
+    std::cout << std::endl;
   }
   for (const dag_node_index index : non_dependent_operators_) {
     if (!fetchNormalWorkOrders(index)) {

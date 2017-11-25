@@ -21,7 +21,9 @@
 #define QUICKSTEP_QUERY_EXECUTION_DAG_ANALYZER_HPP_
 
 #include <cstddef>
+#include <deque>
 #include <memory>
+#include <queue>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -195,6 +197,11 @@ class DAGAnalyzer {
 
   void visualizePipelines();
 
+  void generatePipelineSequence(const size_t pipeline_id,
+                                std::queue<std::size_t> *sequence) const;
+
+  std::vector<std::size_t> getFinalPipelineSequence() const;
+
  private:
   /**
    * @brief Information of a graph node.
@@ -273,6 +280,16 @@ class DAGAnalyzer {
    **/
   bool canPipelinesBeFused(const std::size_t src_pipeline_id,
                            const std::size_t dst_pipeline_id) const;
+
+  bool checkDisplayPipelineNode(const size_t pipeline_id) const;
+
+  std::vector<std::size_t> getUsefulPipelines() const;
+
+  void populateDependents(
+      const size_t pipeline_id,
+      std::vector<std::size_t> *final_sequence,
+      std::unordered_map<size_t, size_t> *incoming_pipelines_count,
+      std::vector<bool> *visited) const;
 
   DISALLOW_COPY_AND_ASSIGN(DAGAnalyzer);
 };

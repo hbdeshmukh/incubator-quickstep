@@ -91,13 +91,11 @@ void DAGAnalyzer::findPipelines() {
           // old pipeline.
           const bool can_pipelines_be_fused =
               canPipelinesBeFused(pipeline_id, pipelines_.size() - 1);
-          // std::cout << "For pipeline 94: " << pipeline_id << std::endl;
           pipelines_[pipeline_id]->linkPipeline(
               pipelines_.size() - 1,
               operator_id,
               true,
               can_pipelines_be_fused);
-          // std::cout << "For pipeline 100: " << pipelines_.size() - 1 << std::endl;
           pipelines_[pipelines_.size() - 1]->linkPipeline(
               pipeline_id,
               dependent_id,
@@ -118,10 +116,8 @@ void DAGAnalyzer::findPipelines() {
                        << "containing " << dependent_id << std::endl;
             const bool can_pipelines_be_fused =
                 canPipelinesBeFused(pipeline_id, i);
-            // std::cout << "For pipeline 121: " << pipeline_id << std::endl;
             pipelines_[pipeline_id]->linkPipeline(
                 i, operator_id, true, can_pipelines_be_fused);
-            // std::cout << "For pipeline 125: " << i << std::endl;
             pipelines_[i]->linkPipeline(
                 pipeline_id, operator_id, false, can_pipelines_be_fused);
           }
@@ -157,12 +153,31 @@ const std::size_t DAGAnalyzer::getTotalNodes() {
 void DAGAnalyzer::visualizePipelines() {
   std::vector<struct NodeInfo> pipelines_info;
   std::vector<struct EdgeInfo> edges;
+
   for (std::size_t id = 0; id < pipelines_.size(); ++id) {
     plotSinglePipeline(id, &pipelines_info, &edges);
   }
-  std::cout << "# nodes: " << pipelines_info.size()
-            << " # edges: " << edges.size() << std::endl;
   std::cout << visualizePipelinesHelper(pipelines_info, edges) << std::endl;
+}
+
+bool DAGAnalyzer::checkDisplayPipelineNode(const std::size_t pipeline_id) const {
+  using ROEnumType =
+  typename std::underlying_type<RelationalOperator::OperatorType>::type;
+
+  // Do not display these relational operators in the graph.
+  const std::unordered_set<ROEnumType> no_display_op_types =
+      {RelationalOperator::kDestroyAggregationState,
+       RelationalOperator::kDestroyHash,
+       RelationalOperator::kDropTable};
+      //{RelationalOperator::kSample};
+  if (pipelines_[pipeline_id]->size() == 1) {
+    const ROEnumType operator_type
+        = query_plan_dag_->getNodePayload(pipelines_[pipeline_id]->getOperatorIDs().front()).getOperatorType();
+    return no_display_op_types.find(operator_type) == no_display_op_types.end();
+  } else {
+    // Always display a pipeline node with more than one operators.
+    return true;
+  }
 }
 
 std::string DAGAnalyzer::visualizePipelinesHelper(
@@ -171,28 +186,32 @@ std::string DAGAnalyzer::visualizePipelinesHelper(
   // Format output graph
   std::ostringstream graph_oss;
   graph_oss << "strict digraph g {\n";
-  graph_oss << "  rankdir=LR\n";
+  graph_oss << "  rankdir=BT\n";
   graph_oss << "  node [penwidth=2]\n";
-  graph_oss << "  edge [fontsize=16 fontcolor=gray penwidth=2]\n\n";
+  graph_oss << "  edge [fontsize=12 fontcolor=gray penwidth=2]\n\n";
 
   // Format nodes
   for (const auto &pipeline : pipelines_info) {
-    graph_oss << pipeline.id << " [ label= \"";
-    graph_oss << pipeline.labels;
-    graph_oss << "\"]\n";
+    if (checkDisplayPipelineNode(pipeline.id)) {
+      graph_oss << pipeline.id << " [ label= \"";
+      graph_oss << pipeline.labels;
+      graph_oss << "\"]\n";
+    }
   }
 
   // Format edges
   for (const EdgeInfo &edge_info : edges) {
-    graph_oss << "  " << edge_info.src_node_id << " -> "
-              << edge_info.dst_node_id << " [ ";
-    if (edge_info.can_be_fused) {
-      // Pipelining is allowed over this edge.
-      graph_oss << "style=filled";
-    } else {
-      graph_oss << "style=dashed";
+    if (checkDisplayPipelineNode(edge_info.src_node_id) && checkDisplayPipelineNode(edge_info.dst_node_id)){
+      graph_oss << "  " << edge_info.src_node_id << " -> "
+                << edge_info.dst_node_id << " [ ";
+      if (edge_info.can_be_fused) {
+        // Pipelining is allowed over this edge.
+        graph_oss << "style=filled";
+      } else {
+        graph_oss << "style=dashed";
+      }
+      graph_oss << "]\n";
     }
-    graph_oss << "]\n";
   }
   graph_oss << "}\n";
   return graph_oss.str();
@@ -206,17 +225,27 @@ void DAGAnalyzer::plotSinglePipeline(
   current_node.id = pipeline_id;
   current_node.labels += "[";
   current_node.labels += std::to_string(pipeline_id);
-  current_node.labels += "] Operators: ";
+  current_node.labels += "] ";
   auto nodes_in_pipeline = pipelines_[pipeline_id]->getOperatorIDs();
+  const std::size_t fixed_len_operator = std::string("Operator").length();
   for (auto node_id : nodes_in_pipeline) {
-    current_node.labels += std::to_string(node_id);
-    current_node.labels += "  ";
+    const std::string op_string = query_plan_dag_->getNodePayload(node_id).getName();
+
+    if (op_string.find("Operator")) {
+      const std::size_t len = query_plan_dag_->getNodePayload(node_id).getName().length();
+      const std::string op_display_name =
+          query_plan_dag_->getNodePayload(node_id).getName().substr(0, len - fixed_len_operator);
+      current_node.labels += std::to_string(node_id) + ":";
+      current_node.labels += op_display_name;
+    } else {
+      current_node.labels += op_string;
+    }
+    current_node.labels += "-";
   }
-  current_node.labels += "";
   nodes->push_back(current_node);
   auto neighbor_pipelines = pipelines_[pipeline_id]->getAllConnectedPipelines();
   for (const PipelineConnection &neighbor : neighbor_pipelines) {
-    if (neighbor.checkPipelineIsDependent()) {
+    if (neighbor.checkConnectedPipelineIsDependent()) {
       edges->emplace_back(pipeline_id,
                           neighbor.getConnectedPipelineID(),
                           neighbor.canPipelinesBeFused());
@@ -242,6 +271,116 @@ bool DAGAnalyzer::canPipelinesBeFused(const std::size_t src_pipeline_id,
   } else {
     DLOG(INFO) << "No Link between " << src_end_operator_id << " and " << dst_start_operator_id << std::endl;
     return false;
+  }
+}
+
+void DAGAnalyzer::generatePipelineSequence(const std::size_t pipeline_id, std::queue<std::size_t> *sequence) const {
+  std::vector<PipelineConnection> children(pipelines_[pipeline_id]->getAllIncomingPipelines());
+  if (children.size() == 1u) {
+    generatePipelineSequence(children.front().getConnectedPipelineID(), sequence);
+  } else if (children.size() > 1u){
+    // sort children from earliest to latest.
+    std::sort(children.begin(), children.end(), [&](const PipelineConnection &a, const PipelineConnection &b){
+      const std::size_t a_end_point_operator_id = pipelines_[a.getConnectedPipelineID()]->getPipelineEndPoint();
+      const std::size_t b_end_point_operator_id = pipelines_[b.getConnectedPipelineID()]->getPipelineEndPoint();
+      const RelationalOperator::OperatorType
+          a_end_op_type = query_plan_dag_->getNodePayload(a_end_point_operator_id).getOperatorType();
+      const RelationalOperator::OperatorType
+          b_end_op_type = query_plan_dag_->getNodePayload(b_end_point_operator_id).getOperatorType();
+      if (a_end_op_type == RelationalOperator::OperatorType::kSelect &&
+          b_end_op_type == RelationalOperator::OperatorType::kBuildHash) {
+        return false;
+      } else if (a_end_op_type == RelationalOperator::OperatorType::kBuildHash &&
+                 b_end_op_type == RelationalOperator::OperatorType::kSelect) {
+        return true;
+      } else {
+        // Execute operator with lower ID earlier.
+        return a_end_point_operator_id < b_end_point_operator_id;
+      }
+    });
+    for (auto child : children) {
+      generatePipelineSequence(child.getConnectedPipelineID(), sequence);
+    }
+  }
+  sequence->push(pipeline_id);
+}
+
+std::vector<std::size_t> DAGAnalyzer::getUsefulPipelines() const {
+  std::vector<std::size_t> useful_pipelines;
+  for (std::size_t pid = 0; pid < pipelines_.size(); ++pid) {
+    if (checkDisplayPipelineNode(pid)) {
+      useful_pipelines.emplace_back(pid);
+    }
+  }
+  return useful_pipelines;
+}
+
+std::vector<std::size_t> DAGAnalyzer::getFinalPipelineSequence() const {
+  // Key = pipeline ID, value = # incoming pipelines.
+  std::unordered_map<std::size_t, std::size_t> incoming_pipelines_count;
+  for (std::size_t pid = 0; pid < pipelines_.size(); ++pid) {
+    incoming_pipelines_count[pid] = pipelines_[pid]->getAllIncomingPipelines().size();
+  }
+  std::vector<bool> visited(pipelines_.size(), false);
+  std::vector<std::size_t> essential_pipelines(getUsefulPipelines());
+  std::queue<std::size_t> essential_pipelines_queue;
+  DCHECK(!essential_pipelines.empty());
+  generatePipelineSequence(essential_pipelines.back(), &essential_pipelines_queue);
+  std::queue<std::size_t> essential_pipelines_queue_copy = essential_pipelines_queue;
+  // Mark the essential pipelines as "visited".
+  while (!essential_pipelines_queue_copy.empty()) {
+    const std::size_t curr_pid = essential_pipelines_queue_copy.front();
+    essential_pipelines_queue_copy.pop();
+    visited[curr_pid] = true;
+  }
+  std::vector<std::size_t> final_pipeline_sequence;
+  while (!essential_pipelines_queue.empty()) {
+    const std::size_t curr_pid = essential_pipelines_queue.front();
+    essential_pipelines_queue.pop();
+    std::vector<std::size_t> dependent_pipelines;
+    dependent_pipelines.emplace_back(curr_pid);
+    populateDependents(curr_pid, &dependent_pipelines, &incoming_pipelines_count, &visited);
+    // NOTE(harshad) - As we use incoming_pipelines_count as a way to record
+    // "visited" pipeline nodes, we set the value for curr_pid to be 0.
+    incoming_pipelines_count[curr_pid] = 0u;
+    final_pipeline_sequence.insert(final_pipeline_sequence.end(),
+                                   dependent_pipelines.begin(),
+                                   dependent_pipelines.end());
+  }
+  return final_pipeline_sequence;
+}
+
+void DAGAnalyzer::populateDependents(
+    const std::size_t pipeline_id,
+    std::vector<std::size_t> *final_sequence,
+    std::unordered_map<std::size_t, std::size_t> *incoming_pipelines_count,
+    std::vector<bool> *visited)
+    const {
+  std::vector<PipelineConnection> outgoing_pipelines =
+      pipelines_[pipeline_id]->getAllOutgoingPipelines();
+  std::queue<std::size_t> outgoing_pipelines_queue;
+  for (auto pc : outgoing_pipelines) {
+    outgoing_pipelines_queue.push(pc.getConnectedPipelineID());
+  }
+  while (!outgoing_pipelines_queue.empty()) {
+    const std::size_t connected_pid = outgoing_pipelines_queue.front();
+    outgoing_pipelines_queue.pop();
+    if ((*visited)[connected_pid]) {
+      continue;
+    }
+    // NOTE(harshad) - This pipeline is assumed to have only one operator,
+    // as these pipelines are for operators like DestroyHash, DropTable.
+    if (pipelines_[connected_pid]->size() == 1u) {
+      if ((*incoming_pipelines_count)[connected_pid] >= 1u) {
+        (*incoming_pipelines_count)[connected_pid] -= 1;
+        if ((*incoming_pipelines_count)[connected_pid] == 0u) {
+          final_sequence->emplace_back(connected_pid);
+          for (auto pc : pipelines_[connected_pid]->getAllOutgoingPipelines()) {
+            outgoing_pipelines_queue.push(pc.getConnectedPipelineID());
+          }
+        }
+      }
+    }
   }
 }
 

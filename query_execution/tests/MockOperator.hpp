@@ -70,6 +70,7 @@ class MockOperator: public RelationalOperator {
 
   MockOperator(const bool produce_workorders,
                const bool has_streaming_input,
+               const std::string name = "MockOperator",
                const int max_getworkorder_iters = 1,
                const int max_workorders = INT_MAX)
       : RelationalOperator(0 /* Query Id */),
@@ -80,11 +81,12 @@ class MockOperator: public RelationalOperator {
         num_calls_get_workorders_(0),
         num_workorders_generated_(0),
         num_calls_feedblock_(0),
-        num_calls_donefeedingblocks_(0) {
+        num_calls_donefeedingblocks_(0),
+        name_(name) {
   }
 
   std::string getName() const override {
-    return "MockOperator";
+    return name_;
   }
 
   OperatorType getOperatorType() const {
@@ -183,6 +185,8 @@ class MockOperator: public RelationalOperator {
   int num_workorders_generated_;
   int num_calls_feedblock_;
   int num_calls_donefeedingblocks_;
+
+  std::string name_;
 
   QueryContext::insert_destination_id insert_destination_index_ = QueryContext::kInvalidInsertDestinationId;
 

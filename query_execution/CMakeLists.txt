@@ -388,6 +388,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_ExecutionStats
                       quickstep_queryexecution_ForemanBase
                       quickstep_queryexecution_ForemanSingleNode
+                      quickstep_queryexecution_Pipeline
                       quickstep_queryexecution_PolicyEnforcerBase
                       quickstep_queryexecution_PolicyEnforcerSingleNode
                       quickstep_queryexecution_ProbabilityStore
@@ -418,6 +419,16 @@ if (ENABLE_DISTRIBUTED)
 endif(ENABLE_DISTRIBUTED)
 
 # Tests:
+add_library(quickstep_queryexecution_tests_MockOperator ../empty_src.cpp "${CMAKE_CURRENT_SOURCE_DIR}/tests/MockOperator.hpp")
+target_link_libraries(quickstep_queryexecution_tests_MockOperator
+                      glog
+                      quickstep_catalog_CatalogTypedefs
+                      quickstep_queryexecution_WorkOrdersContainer
+                      quickstep_queryoptimizer_QueryPlan
+                      quickstep_relationaloperators_RelationalOperator
+                      quickstep_relationaloperators_WorkOrder
+                      quickstep_utility_Macros
+                      tmb)
 if (ENABLE_DISTRIBUTED)
   add_executable(BlockLocator_unittest
                  "${CMAKE_CURRENT_SOURCE_DIR}/tests/BlockLocator_unittest.cpp")
@@ -446,6 +457,12 @@ endif(ENABLE_DISTRIBUTED)
 
 add_executable(DAGAnalyzer_unittest
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/DAGAnalyzer_unittest.cpp")
+target_link_libraries(DAGAnalyzer_unittest
+                      gtest
+                      gtest_main
+                      quickstep_queryexecution_DAGAnalyzer
+                      quickstep_queryexecution_tests_MockOperator
+                      quickstep_utility_DAG)
 add_test(DAGAnalyzer_unittest DAGAnalyzer_unittest)
 
 add_executable(ProbabilityStore_unittest

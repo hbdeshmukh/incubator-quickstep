@@ -83,7 +83,7 @@ class PipelineConnection {
    * @brief Check if the connected pipeline (i.e. the pipeline with id =
    *        connected_pipeline_id) is dependent on the given pipeline.
    **/
-  bool checkPipelineIsDependent() const {
+  bool checkConnectedPipelineIsDependent() const {
     return is_dependent_;
   }
 
@@ -179,21 +179,37 @@ class Pipeline {
                                can_be_fused)) {
       connected_pipelines_.emplace_back(
           connected_pipeline_id, is_dependent, can_be_fused);
-      /*std::cout << "Inserted operator = " << connected_operator_id << " : "
-                << connected_pipelines_.back();*/
-    }/* else {
-      std::cout << "Already present operator = " << connected_operator_id << " " << PipelineConnection(connected_pipeline_id, is_dependent, can_be_fused);
-    }*/
+    }
   }
 
   const std::vector<PipelineConnection>& getAllConnectedPipelines() const {
     return connected_pipelines_;
   }
 
+  const std::vector<PipelineConnection> getAllIncomingPipelines() const {
+    std::vector<PipelineConnection> incoming_pipelines;
+    for (auto conn : connected_pipelines_) {
+      if (!conn.checkConnectedPipelineIsDependent()) {
+        incoming_pipelines.emplace_back(conn);
+      }
+    }
+    return incoming_pipelines;
+  }
+
+  const std::vector<PipelineConnection> getAllOutgoingPipelines() const {
+    std::vector<PipelineConnection> outgoing_pipelines;
+    for (auto conn : connected_pipelines_) {
+      if (conn.checkConnectedPipelineIsDependent()) {
+        outgoing_pipelines.emplace_back(conn);
+      }
+    }
+    return outgoing_pipelines;
+  }
+
   const std::vector<std::size_t> getAllBlockingDependencies() const {
     std::vector<std::size_t> blocking_dependencies;
     for (const PipelineConnection &pc : getAllConnectedPipelines()) {
-      if (!pc.checkPipelineIsDependent() && !pc.canPipelinesBeFused()) {
+      if (!pc.checkConnectedPipelineIsDependent() && !pc.canPipelinesBeFused()) {
         blocking_dependencies.emplace_back(pc.getConnectedPipelineID());
       }
     }
@@ -214,7 +230,6 @@ class Pipeline {
   std::vector<std::size_t> operators_;
 
   // Key = operator ID, value = connected pipeline to the key operator.
-  // std::unordered_map<std::size_t, std::vector<PipelineConnection>> connected_pipelines_;
   std::vector<PipelineConnection> connected_pipelines_;
 
   DISALLOW_COPY_AND_ASSIGN(Pipeline);
