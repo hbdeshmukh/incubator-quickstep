@@ -32,9 +32,15 @@
 
 #include "utility/DAG.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 namespace quickstep {
+
+DEFINE_bool(show_all_nodes,
+            true,
+            "Show both essential and non-essential types of nodes in the "
+            "visualization of the pipelines");
 
 void DAGAnalyzer::findPipelines() {
   // Key = node ID, value = whether the node has been visited or not.
@@ -192,7 +198,7 @@ std::string DAGAnalyzer::visualizePipelinesHelper(
 
   // Format nodes
   for (const auto &pipeline : pipelines_info) {
-    if (checkDisplayPipelineNode(pipeline.id)) {
+    if (FLAGS_show_all_nodes || checkDisplayPipelineNode(pipeline.id)) {
       graph_oss << pipeline.id << " [ label= \"";
       graph_oss << pipeline.labels;
       graph_oss << "\"]\n";
@@ -201,7 +207,9 @@ std::string DAGAnalyzer::visualizePipelinesHelper(
 
   // Format edges
   for (const EdgeInfo &edge_info : edges) {
-    if (checkDisplayPipelineNode(edge_info.src_node_id) && checkDisplayPipelineNode(edge_info.dst_node_id)){
+    if (FLAGS_show_all_nodes ||
+        (checkDisplayPipelineNode(edge_info.src_node_id) &&
+         checkDisplayPipelineNode(edge_info.dst_node_id))) {
       graph_oss << "  " << edge_info.src_node_id << " -> "
                 << edge_info.dst_node_id << " [ ";
       if (edge_info.can_be_fused) {

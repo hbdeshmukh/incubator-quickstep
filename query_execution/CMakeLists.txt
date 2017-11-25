@@ -98,7 +98,8 @@ target_link_libraries(quickstep_queryexecution_DAGAnalyzer
                       quickstep_queryexecution_Pipeline
                       quickstep_relationaloperators_RelationalOperator
                       quickstep_utility_DAG
-                      quickstep_utility_Macros)
+                      quickstep_utility_Macros
+                      ${GFLAGS_LIB_NAME})
 target_link_libraries(quickstep_queryexecution_ForemanBase
                       glog
                       quickstep_queryexecution_PolicyEnforcerBase
