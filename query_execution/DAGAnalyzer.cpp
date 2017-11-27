@@ -186,6 +186,25 @@ bool DAGAnalyzer::checkDisplayPipelineNode(const std::size_t pipeline_id) const 
   }
 }
 
+bool DAGAnalyzer::isEssentialNode(const std::size_t pipeline_id) const {
+  using ROEnumType =
+  typename std::underlying_type<RelationalOperator::OperatorType>::type;
+
+  // Do not display these relational operators in the graph.
+  const std::unordered_set<ROEnumType> no_display_op_types =
+      {RelationalOperator::kDestroyAggregationState,
+       RelationalOperator::kDestroyHash,
+       RelationalOperator::kDropTable};
+  if (pipelines_[pipeline_id]->size() == 1) {
+    const ROEnumType operator_type
+        = query_plan_dag_->getNodePayload(pipelines_[pipeline_id]->getOperatorIDs().front()).getOperatorType();
+    return no_display_op_types.find(operator_type) == no_display_op_types.end();
+  } else {
+    // Always display a pipeline node with more than one operators.
+    return true;
+  }
+}
+
 std::string DAGAnalyzer::visualizePipelinesHelper(
     const std::vector<struct NodeInfo> &pipelines_info,
     const std::vector<struct EdgeInfo> &edges) {
@@ -316,7 +335,7 @@ void DAGAnalyzer::generatePipelineSequence(const std::size_t pipeline_id, std::q
 std::vector<std::size_t> DAGAnalyzer::getUsefulPipelines() const {
   std::vector<std::size_t> useful_pipelines;
   for (std::size_t pid = 0; pid < pipelines_.size(); ++pid) {
-    if (checkDisplayPipelineNode(pid)) {
+    if (isEssentialNode(pid)) {
       useful_pipelines.emplace_back(pid);
     }
   }

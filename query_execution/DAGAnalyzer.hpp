@@ -285,6 +285,8 @@ class DAGAnalyzer {
 
   std::vector<std::size_t> getUsefulPipelines() const;
 
+  bool isEssentialNode(const size_t pipeline_id) const;
+
   void populateDependents(
       const size_t pipeline_id,
       std::vector<std::size_t> *final_sequence,
