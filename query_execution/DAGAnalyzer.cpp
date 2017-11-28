@@ -187,22 +187,22 @@ bool DAGAnalyzer::checkDisplayPipelineNode(const std::size_t pipeline_id) const 
 }
 
 bool DAGAnalyzer::isEssentialNode(const std::size_t pipeline_id) const {
-  using ROEnumType =
-  typename std::underlying_type<RelationalOperator::OperatorType>::type;
-
-  // Do not display these relational operators in the graph.
-  const std::unordered_set<ROEnumType> no_display_op_types =
-      {RelationalOperator::kDestroyAggregationState,
-       RelationalOperator::kDestroyHash,
-       RelationalOperator::kDropTable};
   if (pipelines_[pipeline_id]->size() == 1) {
+    using ROEnumType =
+    typename std::underlying_type<RelationalOperator::OperatorType>::type;
+
+    // Do not display these relational operators in the graph.
+    const std::unordered_set<ROEnumType> no_display_op_types =
+        {RelationalOperator::kDestroyAggregationState,
+         RelationalOperator::kDestroyHash,
+         RelationalOperator::kDropTable};
+
     const ROEnumType operator_type
         = query_plan_dag_->getNodePayload(pipelines_[pipeline_id]->getOperatorIDs().front()).getOperatorType();
     return no_display_op_types.find(operator_type) == no_display_op_types.end();
-  } else {
-    // Always display a pipeline node with more than one operators.
-    return true;
   }
+  // Always display a pipeline node with more than one operators.
+  return true;
 }
 
 std::string DAGAnalyzer::visualizePipelinesHelper(
@@ -339,6 +339,9 @@ std::vector<std::size_t> DAGAnalyzer::getUsefulPipelines() const {
       useful_pipelines.emplace_back(pid);
     }
   }
+  std::sort(useful_pipelines.begin(), useful_pipelines.end(), [&](const std::size_t a, const std::size_t b){
+    return pipelines_[a]->getAllOutgoingPipelines().size() > pipelines_[b]->getAllOutgoingPipelines().size();
+  });
   return useful_pipelines;
 }
 
@@ -352,7 +355,7 @@ std::vector<std::size_t> DAGAnalyzer::getFinalPipelineSequence() const {
   std::vector<std::size_t> essential_pipelines(getUsefulPipelines());
   std::queue<std::size_t> essential_pipelines_queue;
   DCHECK(!essential_pipelines.empty());
-  generatePipelineSequence(essential_pipelines.back(), &essential_pipelines_queue);
+  generatePipelineSequence(essential_pipelines.front(), &essential_pipelines_queue);
   std::queue<std::size_t> essential_pipelines_queue_copy = essential_pipelines_queue;
   // Mark the essential pipelines as "visited".
   while (!essential_pipelines_queue_copy.empty()) {

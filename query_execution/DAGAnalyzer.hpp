@@ -202,6 +202,8 @@ class DAGAnalyzer {
 
   std::vector<std::size_t> getFinalPipelineSequence() const;
 
+  std::vector<std::size_t> getUsefulPipelines() const;
+
  private:
   /**
    * @brief Information of a graph node.
@@ -282,8 +284,6 @@ class DAGAnalyzer {
                            const std::size_t dst_pipeline_id) const;
 
   bool checkDisplayPipelineNode(const size_t pipeline_id) const;
-
-  std::vector<std::size_t> getUsefulPipelines() const;
 
   bool isEssentialNode(const size_t pipeline_id) const;
 

@@ -71,11 +71,13 @@ QueryManagerSingleNode::QueryManagerSingleNode(
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
   if (FLAGS_print_pipelines) {
     dag_analyzer_->visualizePipelines();
-    std::queue<std::size_t> essential_pipelines_sequence;
-    dag_analyzer_->generatePipelineSequence(28, &essential_pipelines_sequence);
-    while (!essential_pipelines_sequence.empty()) {
-      std::cout << essential_pipelines_sequence.front() << " - ";
-      essential_pipelines_sequence.pop();
+    std::vector<std::size_t> essential_pipelines_sequence(dag_analyzer_->getUsefulPipelines());
+    std::queue<std::size_t> essential_pipelines_queue;
+    dag_analyzer_->generatePipelineSequence(essential_pipelines_sequence.front(), &essential_pipelines_queue);
+    std::cout << "Essential pipelines:\n";
+    while (!essential_pipelines_queue.empty()) {
+      std::cout << essential_pipelines_queue.front() << " - ";
+      essential_pipelines_queue.pop();
     }
     std::cout << std::endl;
     std::vector<std::size_t> final_sequence = dag_analyzer_->getFinalPipelineSequence();
