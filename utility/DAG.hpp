@@ -104,6 +104,25 @@ class DAG {
    * @return An unordered set made of the indices of the dependencies of the
    *         specified node.
    **/
+  inline const std::unordered_set<size_type_nodes> getDependentsAsSet(
+      const size_type_nodes node_index) const {
+    DCHECK_LT(node_index, nodes_.size());
+    auto deps = nodes_[node_index].getDependents();
+    std::unordered_set<size_type_nodes> dependents_set;
+    for (auto deps_pair : deps) {
+      dependents_set.emplace(deps_pair.first);
+    }
+    return dependents_set;
+  }
+
+  /**
+   * @brief Get the dependencies of the specified node.
+   *
+   * @param node_index The index of the specified node.
+   *
+   * @return An unordered set made of the indices of the dependencies of the
+   *         specified node.
+   **/
   inline const std::unordered_set<size_type_nodes>& getDependencies(const size_type_nodes node_index) const {
     DCHECK_LT(node_index, nodes_.size());
     return nodes_[node_index].getDependencies();
@@ -137,6 +156,19 @@ class DAG {
     DCHECK_LT(dependent_index, nodes_.size());
     nodes_[dependency_index].addDependent(dependent_index, link_metadata);
     nodes_[dependent_index].addDependency(dependency_index);
+  }
+
+  /**
+   * @brief Check if there is a link between two nodes.
+   * @param dependency_index The ID of the dependency node.
+   * @param dependent_index The ID of the dependent node.
+   * @return True if there's a link, false otherwise.
+   */
+  bool hasLink(const size_type_nodes dependency_index,
+               const size_type_nodes dependent_index) const {
+    auto neighbors_of_dependency = getDependentsAsSet(dependency_index);
+    return neighbors_of_dependency.find(dependent_index) !=
+        neighbors_of_dependency.end();
   }
 
   /**

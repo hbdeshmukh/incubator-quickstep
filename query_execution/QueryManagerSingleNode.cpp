@@ -20,13 +20,16 @@
 #include "query_execution/QueryManagerSingleNode.hpp"
 
 #include <cstddef>
+#include <queue>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "catalog/CatalogDatabase.hpp"
 #include "catalog/CatalogTypedefs.hpp"
+#include "query_execution/DAGAnalyzer.hpp"
 #include "query_execution/IntraQuerySchedulingStrategy.hpp"
+#include "query_execution/PipelineScheduling.hpp"
 #include "query_execution/QueryExecutionTypedefs.hpp"
 #include "query_execution/RandomOperatorStrategy.hpp"
 #include "query_execution/TopologicalSortStaticOrderStrategy.hpp"
@@ -44,9 +47,14 @@
 
 #include "tmb/id_typedefs.h"
 
+
 namespace quickstep {
 
+
 class WorkOrder;
+
+DEFINE_bool(print_pipelines, false,
+            "Visualize the query plans as set of connected pipelines");
 
 DEFINE_int32(scheduling_strategy,
               0,
@@ -72,6 +80,7 @@ QueryManagerSingleNode::QueryManagerSingleNode(
                                       bus_)),
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
+      dag_analyzer_(new DAGAnalyzer(query_dag_)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
   switch (FLAGS_scheduling_strategy) {
     case kStaticOrderTopoSort: {
@@ -89,11 +98,24 @@ QueryManagerSingleNode::QueryManagerSingleNode(
           query_dag_, workorders_container_.get(), *query_exec_state_));
       break;
     }
+    case kPipeline: {
+      scheduling_strategy_.reset(new PipelineScheduling(
+          query_dag_, dag_analyzer_.get(), workorders_container_.get(), *query_exec_state_));
+      break;
+    }
     default: {
       LOG(FATAL) << "Invalid input for scheduling strategy flag";
     }
   }
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
+  if (FLAGS_print_pipelines && FLAGS_scheduling_strategy == kPipeline) {
+    dag_analyzer_->visualizePipelines();
+    std::cout << "Pipeline sequence: \n";
+    for (auto i : dag_analyzer_->getPipelineSequence()) {
+      std::cout << i << ":";
+    }
+    std::cout << std::endl;
+  }
   for (const dag_node_index index : non_dependent_operators_) {
     if (!fetchNormalWorkOrders(index)) {
       DCHECK(!checkRebuildRequired(index) || initiateRebuild(index));
@@ -142,9 +164,8 @@ WorkerMessage* QueryManagerSingleNode::getNextWorkerMessageStrategic(
 
 
 void QueryManagerSingleNode::markOperatorFinished(const QueryManagerBase::dag_node_index index) {
-  scheduling_strategy_->informCompletionOfOperator(index);
-
   QueryManagerBase::markOperatorFinished(index);
+  scheduling_strategy_->informCompletionOfOperator(index);
 }
 
 bool QueryManagerSingleNode::fetchNormalWorkOrders(const dag_node_index index) {

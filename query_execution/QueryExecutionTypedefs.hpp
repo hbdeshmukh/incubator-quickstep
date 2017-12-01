@@ -136,7 +136,8 @@ typedef std::unordered_map<std::size_t, std::vector<WorkOrderTimeEntry>> WorkOrd
 enum SchedulingStrategy {
   kStaticOrderTopoSort = 0,
   kRandomOperator,
-  kWeightedWorkOrder
+  kWeightedWorkOrder,
+  kPipeline
 };
 
 /** @} */
