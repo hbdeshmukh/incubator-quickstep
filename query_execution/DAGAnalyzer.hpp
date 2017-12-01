@@ -204,12 +204,12 @@ class DAGAnalyzer {
 
   void visualizePipelines();
 
-  void generatePipelineSequence(const size_t pipeline_id,
-                                std::queue<std::size_t> *sequence) const;
+  void generateEssentialPipelineSequence(const size_t topmost_pipeline_id,
+                                         std::queue<std::size_t> *sequence) const;
 
   std::vector<std::size_t> generateFinalPipelineSequence() const;
 
-  std::vector<std::size_t> getUsefulPipelines() const;
+  std::vector<std::size_t> getEssentialPipelines() const;
 
   std::size_t getPipelineIDForOperator(std::size_t operator_id) const {
     DCHECK(operator_to_pipeline_lookup_.find(operator_id) != operator_to_pipeline_lookup_.end());
@@ -304,6 +304,16 @@ class DAGAnalyzer {
   std::string visualizePipelinesHelper(const std::vector<struct NodeInfo> &pipelines_info,
                                 const std::vector<struct EdgeInfo> &edges);
 
+
+  /**
+   * @brief Rearrange the essential pipelines in top-down order.
+   * @param essential_pipelines The list of essential pipelines.
+   */
+  void rearrangeEssentialPipelines(std::vector<size_t> *essential_pipelines) const;
+
+  std::size_t getEssentialOutPipelinesCount(const size_t pipeline_id) const;
+
+  std::vector<size_t> getEssentialChildrenPipelines(const size_t pipeline_id) const;
 
   DAG<RelationalOperator, bool> *query_plan_dag_;
   std::vector<std::unique_ptr<Pipeline>> pipelines_;

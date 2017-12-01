@@ -137,7 +137,7 @@ TEST(DAGAnalyzerTest, GenerateSequenceTest) {
   }
   std::cout << std::endl;
   std::stack<std::size_t> sequence;
-  analyzer.generatePipelineSequence(5, &sequence);
+  analyzer.generateEssentialPipelineSequence(5, &sequence);
 
   while (!sequence.empty()) {
     std::cout << sequence.top() << " ---";
