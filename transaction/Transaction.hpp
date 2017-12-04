@@ -35,7 +35,7 @@ namespace transaction {
 /**
  * @brief Type that represents id of a transaction.
  **/
-typedef std::uint64_t transaction_id;
+typedef std::size_t transaction_id;
 
 const transaction_id kInvalidTransactionID =
     std::numeric_limits<std::uint64_t>::max();

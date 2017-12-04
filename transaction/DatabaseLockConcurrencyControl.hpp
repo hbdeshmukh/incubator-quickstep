@@ -24,10 +24,11 @@
 #include <utility>
 #include <vector>
 
+#include "parser/ParseStatement.hpp"
+#include "query_optimizer/QueryHandle.hpp"
 #include "transaction/ConcurrencyControl.hpp"
 #include "transaction/Transaction.hpp"
 #include "utility/Macros.hpp"
-#include "utility/ThreadSafeQueue.hpp"
 
 #include "glog/logging.h"
 
@@ -40,24 +41,27 @@ namespace transaction {
  */
 class DatabaseLockConcurrencyControl : public ConcurrencyControl {
  public:
-  DatabaseLockConcurrencyControl() : ConcurrencyControl() {
+  DatabaseLockConcurrencyControl()
+      : ConcurrencyControl(), running_query_handle_(nullptr) {
   }
 
   ~DatabaseLockConcurrencyControl() override {
   }
 
+  /**
+   * TODO(quickstep-team) When we support multiple databases, refactor this
+   * method so that the ResourceId is the Database ID.
+   * Right now the ResourceId is not being used.
+   */
   bool admitTransaction(
-      const transaction_id tid,
-      const std::vector<std::pair<ResourceId, AccessMode>> &resource_requests)
+      const std::vector<std::pair<ResourceId, AccessMode>> &resource_requests,
+      QueryHandle *query_handle)
       override {
     if (waiting_transactions_.empty()) {
-      // Don't bother about the requested resource IDs and their access modes,
-      // as we always lock the CatalogDatabase.
-      // The system currently supports only one CatalogDatabase.
-      running_transaction_id_ = tid;
+      running_query_handle_ = query_handle;
       return true;
     } else {
-      waiting_transactions_.push(tid);
+      waiting_transactions_.push(query_handle);
       // Other transactions are waitlisted ahead of the current transaction.
       return false;
     }
@@ -69,12 +73,13 @@ class DatabaseLockConcurrencyControl : public ConcurrencyControl {
   }
 
   void signalTransactionCompletion(const transaction_id tid) override {
-    DCHECK_EQ(running_transaction_id_, tid);
-    running_transaction_id_ = kInvalidTransactionID;
+    DCHECK(isTransactionRunning());
+    DCHECK_EQ(running_query_handle_->query_id(), tid);
+    running_query_handle_ = nullptr;
   }
 
   std::size_t getRunningTransactionsCount() const override {
-    return (running_transaction_id_ == kInvalidTransactionID) ? 0u : 1u;
+    return isTransactionRunning() ? 1u : 0u;
   }
 
   std::size_t getWaitingTransactionsCount() const override {
@@ -88,9 +93,10 @@ class DatabaseLockConcurrencyControl : public ConcurrencyControl {
    *         False if there is no waiting transaction.
    */
   bool admitNextWaitingTransaction() {
-    DCHECK_EQ(kInvalidTransactionID, running_transaction_id_);
+    DCHECK(!isTransactionRunning());
     if (!waiting_transactions_.empty()) {
-      running_transaction_id_ = waiting_transactions_.popOne();
+      running_query_handle_ = waiting_transactions_.front();
+      waiting_transactions_.pop();
       return true;
     } else {
       LOG(WARNING) << "Trying to admit a waiting transaction when there is none";
@@ -98,10 +104,60 @@ class DatabaseLockConcurrencyControl : public ConcurrencyControl {
     }
   }
 
- private:
-  ThreadSafeQueue<transaction_id> waiting_transactions_;
+  QueryHandle* getNextTransactionForExecution() override {
+    CHECK(admitNextWaitingTransaction());
+    return running_query_handle_;
+  }
 
-  transaction_id running_transaction_id_;
+  /**
+   * TODO(quickstep-team) Handle the case when a query requires different
+   * relations to have different, finer grained access modes.
+   * e.g. INESRT INTO X SELECT * FROM Y;
+   * One way to do that could be to pass the type of concurrency control as a
+   * parameter to this query.
+   */
+  std::vector<std::pair<ResourceId, AccessMode>> getAccessModesForRelations(
+      const ParseStatement &statement, std::vector<const CatalogRelation *> relations) override {
+    transaction::AccessMode access_mode(transaction::AccessMode::NoLockMode());
+    switch (statement.getStatementType()) {
+      case ParseStatement::kCopy:
+      case ParseStatement::kCreateIndex:
+      case ParseStatement::kCreateTable:
+      case ParseStatement::kDelete:
+      case ParseStatement::kDropTable:
+      case ParseStatement::kInsert:
+      case ParseStatement::kUpdate: {
+        access_mode = transaction::AccessMode::XLockMode();
+        break;
+      }
+      case ParseStatement::kQuit:
+      case ParseStatement::kSetOperation:
+      case ParseStatement::kCommand: {
+        break;
+      }
+    }
+
+    std::vector<std::pair<ResourceId, AccessMode>> result;
+    result.reserve(relations.size());
+    for (const CatalogRelation *relation : relations) {
+      result.emplace_back(relation->getID(), access_mode);
+    }
+    return result;
+  }
+
+ private:
+  bool isTransactionRunning() const {
+    return running_query_handle_ != nullptr;
+  }
+
+  transaction_id getRunningTransactionID() const {
+    DCHECK(running_query_handle_ != nullptr);
+    return running_query_handle_->query_id();
+  }
+
+  std::queue<QueryHandle*> waiting_transactions_;
+
+  QueryHandle* running_query_handle_;
 
   DISALLOW_COPY_AND_ASSIGN(DatabaseLockConcurrencyControl);
 };

@@ -33,6 +33,7 @@
 #include "query_execution/WorkerDirectory.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
+#include "transaction/ConcurrencyControl.hpp"
 
 #include "gflags/gflags.h"
 #include "glog/logging.h"
@@ -88,24 +89,45 @@ void PolicyEnforcerSingleNode::getWorkerMessages(
 }
 
 bool PolicyEnforcerSingleNode::admitQuery(QueryHandle *query_handle) {
-  if (admitted_queries_.size() < PolicyEnforcerBase::kMaxConcurrentQueries) {
-    // Ok to admit the query.
-    const std::size_t query_id = query_handle->query_id();
-    if (admitted_queries_.find(query_id) == admitted_queries_.end()) {
-      // Query with the same ID not present, ok to admit.
-      admitted_queries_[query_id].reset(
-          new QueryManagerSingleNode(foreman_client_id_, num_numa_nodes_, query_handle,
-                                     catalog_database_, storage_manager_, bus_));
-      return true;
-    } else {
-      LOG(ERROR) << "Query with the same ID " << query_id << " exists";
-      return false;
-    }
-  } else {
-    // This query will have to wait.
-    waiting_queries_.push(query_handle);
-    return false;
+  const std::size_t query_id = query_handle->query_id();
+  // Check if the query with the same ID is present.
+  DCHECK(admitted_queries_.end() != admitted_queries_.find(query_id));
+  admitted_queries_[query_id].reset(
+      new QueryManagerSingleNode(foreman_client_id_, num_numa_nodes_, query_handle,
+                                 catalog_database_, storage_manager_, bus_));
+  return true;
+}
+
+void PolicyEnforcerSingleNode::removeQuery(const std::size_t query_id) {
+  concurrency_control_->signalTransactionCompletion(query_id);
+  admitted_queries_.erase(query_id);
+}
+
+bool PolicyEnforcerSingleNode::hasQueries() const {
+  return concurrency_control_->getWaitingTransactionsCount() > 0u;
+}
+
+bool PolicyEnforcerSingleNode::admitQueries(const std::vector<QueryHandle *> &query_handles) {
+  for (auto handle : query_handles) {
+    admitQuery(handle);
   }
+  return true;
+}
+
+void PolicyEnforcerSingleNode::checkQueryCompletion(size_t query_id, QueryManagerBase::dag_node_index op_index) {
+  if (admitted_queries_[query_id]->queryStatus(op_index) ==
+      QueryManagerBase::QueryStatusCode::kQueryExecuted) {
+    onQueryCompletion(admitted_queries_[query_id].get());
+
+    removeQuery(query_id);
+    if (hasQueries()) {
+      // Admit the earliest waiting query.
+      QueryHandle *new_query = concurrency_control_->getNextTransactionForExecution();
+      admitQuery(new_query);
+    }
+  }
+
+  PolicyEnforcerBase::checkQueryCompletion(query_id, op_index);
 }
 
 }  // namespace quickstep

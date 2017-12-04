@@ -79,7 +79,7 @@ class PolicyEnforcerBase {
    * @return True if all the queries were admitted, false if at least one query
    *         was not admitted.
    **/
-  bool admitQueries(const std::vector<QueryHandle*> &query_handles);
+  virtual bool admitQueries(const std::vector<QueryHandle*> &query_handles);
 
   /**
    * @brief Remove a given query that is under execution.
@@ -92,7 +92,7 @@ class PolicyEnforcerBase {
    *
    * @param query_id The ID of the query to be removed.
    **/
-  void removeQuery(const std::size_t query_id);
+  virtual void removeQuery(const std::size_t query_id);
 
   /**
    * @brief Process a message sent to the Foreman, which gets passed on to the
@@ -100,7 +100,7 @@ class PolicyEnforcerBase {
    *
    * @param message The message.
    **/
-  void processMessage(const TaggedMessage &tagged_message);
+  virtual void processMessage(const TaggedMessage &tagged_message);
 
   /**
    * @brief Check if there are any queries to be executed.
@@ -108,7 +108,7 @@ class PolicyEnforcerBase {
    * @return True if there is at least one active or waiting query, false if
    *         the policy enforcer doesn't have any query.
    **/
-  inline bool hasQueries() const {
+  virtual inline bool hasQueries() const {
     return !(admitted_queries_.empty() && waiting_queries_.empty());
   }
 
@@ -162,6 +162,16 @@ class PolicyEnforcerBase {
    * @param query_manager The query manager.
    **/
   virtual void onQueryCompletion(QueryManagerBase *query_manager) {}
+
+  virtual /**
+   * @brief Perform a check for whether the given query has finished its
+   *        execution. If the query's execution is over, admit the next query.
+   *
+   * @param query_id The ID of the given query.
+   * @param op_index The operator from the given query for which a message
+   *        was processed.
+   */
+  void checkQueryCompletion(size_t query_id, QueryManagerBase::dag_node_index op_index);
 
   /**
    * @brief Record the execution time for a finished WorkOrder.

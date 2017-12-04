@@ -149,8 +149,11 @@ target_link_libraries(quickstep_cli_CommandExecutorUtil
                       quickstep_catalog_IndexScheme
                       quickstep_catalog_PartitionScheme
                       quickstep_cli_PrintToScreen
+                      quickstep_parser_ParseStatement
                       quickstep_parser_ParseString
                       quickstep_storage_StorageBlockLayout_proto
+                      quickstep_transaction_AccessMode
+                      quickstep_transaction_ResourceId
                       quickstep_types_Type
                       quickstep_types_TypeID
                       quickstep_types_TypedValue

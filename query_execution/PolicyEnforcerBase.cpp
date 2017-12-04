@@ -132,6 +132,10 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
     default:
       LOG(FATAL) << "Unknown message type found in PolicyEnforcer";
   }
+  checkQueryCompletion(query_id, op_index);
+}
+
+void PolicyEnforcerBase::checkQueryCompletion(size_t query_id, QueryManagerBase::dag_node_index op_index) {
   if (admitted_queries_[query_id]->queryStatus(op_index) ==
           QueryManagerBase::QueryStatusCode::kQueryExecuted) {
     onQueryCompletion(admitted_queries_[query_id].get());

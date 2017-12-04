@@ -67,11 +67,12 @@ target_link_libraries(quickstep_transaction_CycleDetector
 target_link_libraries(quickstep_transaction_ConcurrencyControl
                       quickstep_transaction_AccessMode
                       quickstep_transaction_ResourceId
+                      quickstep_transaction_Transaction
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_transaction_DatabaseLockConcurrencyControl
+                      quickstep_queryoptimizer_QueryHandle
                       quickstep_transaction_ConcurrencyControl
                       quickstep_transaction_Transaction
-                      quickstep_utility_ThreadSafeQueue
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_transaction_DeadLockDetector
                       glog

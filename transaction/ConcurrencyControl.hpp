@@ -26,9 +26,14 @@
 
 #include "transaction/AccessMode.hpp"
 #include "transaction/ResourceId.hpp"
+#include "transaction/Transaction.hpp"
 #include "utility/Macros.hpp"
 
 namespace quickstep {
+
+class ParseStatement;
+class QueryHandle;
+
 namespace transaction {
 
 /**
@@ -50,15 +55,15 @@ class ConcurrencyControl {
    *       transactions. If it is compatible, let it run, otherwise put
    *       the transaction in the waiting list.
    *
-   * @param tid The ID of the given transaction.
    * @param resource_requests A vector of pairs such that each pair has a
    *        resource ID and its requested access mode.
+   * @param query_handle The QueryHandle for the transaction.
    *
    * @return True if the transaction can be admitted, false if it has to wait.
    */
   virtual bool admitTransaction(
-      const transaction_id tid,
-      const std::vector<std::pair<ResourceId, AccessMode>> &resource_requests) = 0;
+      const std::vector<std::pair<ResourceId, AccessMode>> &resource_requests,
+      QueryHandle *query_handle) = 0;
 
   /**
    * @brief Attempt to admit a waiting transaction.
@@ -75,11 +80,18 @@ class ConcurrencyControl {
   virtual bool admitWaitingTransaction(const transaction_id tid) = 0;
 
   /**
+   * @brief Get the next transaction for execution.
+   * @return The QueryHandle to the next transaction, or nullptr if there's
+   *         none.
+   */
+  virtual QueryHandle* getNextTransactionForExecution() = 0;
+
+  /**
    * @brief Signal the end of a running transaction.
    *
    * @param tid The ID of the given transaction.
    **/
-  virtual void signalTransactionCompletion(const transaction_id tid);
+  virtual void signalTransactionCompletion(const transaction_id tid) = 0;
 
   /**
    * @brief Get the number of running transactions.
@@ -90,6 +102,16 @@ class ConcurrencyControl {
    * @brief Get the number of waiting transactions.
    */
   virtual std::size_t getWaitingTransactionsCount() const = 0;
+
+  /**
+   * @brief Get the access modes for each relation accessed in the query.
+   *
+   * @param statement The query statement.
+   * @param relations The list of base relations accessed in this query.
+   * @return A list of pairs of relation ID and its requested access mode.
+   */
+  virtual std::vector<std::pair<ResourceId, AccessMode>> getAccessModesForRelations(
+      const ParseStatement &statement, const std::vector<const CatalogRelation*> relations) = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ConcurrencyControl);

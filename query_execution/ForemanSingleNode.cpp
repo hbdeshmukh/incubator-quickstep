@@ -61,12 +61,14 @@ ForemanSingleNode::ForemanSingleNode(
     tmb::MessageBus *bus,
     CatalogDatabaseLite *catalog_database,
     StorageManager *storage_manager,
+    transaction::ConcurrencyControl *concurrency_control,
     const int cpu_id,
     const size_t num_numa_nodes)
     : ForemanBase(bus, cpu_id),
       main_thread_client_id_(main_thread_client_id),
       worker_directory_(DCHECK_NOTNULL(worker_directory)),
-      storage_manager_(DCHECK_NOTNULL(storage_manager)) {
+      storage_manager_(DCHECK_NOTNULL(storage_manager)),
+      concurrency_control_(concurrency_control) {
   const std::vector<QueryExecutionMessageType> sender_message_types{
       kPoisonMessage,
       kRebuildWorkOrderMessage,
@@ -90,13 +92,15 @@ ForemanSingleNode::ForemanSingleNode(
     bus_->RegisterClientAsReceiver(foreman_client_id_, message_type);
   }
 
+  // TODO(harshad) - Pass the concurrency control pointer here.
   policy_enforcer_ = std::make_unique<PolicyEnforcerSingleNode>(
       foreman_client_id_,
       num_numa_nodes,
       catalog_database,
       storage_manager_,
       worker_directory_,
-      bus_);
+      bus_,
+      concurrency_control_);
 }
 
 void ForemanSingleNode::run() {

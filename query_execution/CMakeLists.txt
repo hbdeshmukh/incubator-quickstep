@@ -139,6 +139,7 @@ target_link_libraries(quickstep_queryexecution_ForemanSingleNode
                       quickstep_queryexecution_WorkerDirectory
                       quickstep_queryexecution_WorkerMessage
                       quickstep_threading_ThreadUtil
+                      quickstep_transaction_ConcurrencyControl
                       quickstep_utility_Macros
                       tmb
                       ${GFLAGS_LIB_NAME})
@@ -199,6 +200,7 @@ target_link_libraries(quickstep_queryexecution_PolicyEnforcerSingleNode
                       quickstep_queryexecution_WorkerDirectory
                       quickstep_queryexecution_WorkerMessage
                       quickstep_queryoptimizer_QueryHandle
+                      quickstep_transaction_ConcurrencyControl
                       quickstep_utility_Macros
                       tmb
                       ${GFLAGS_LIB_NAME})

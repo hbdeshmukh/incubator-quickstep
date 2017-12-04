@@ -66,6 +66,8 @@
 #include "storage/StorageConstants.hpp"
 #include "storage/StorageManager.hpp"
 #include "threading/ThreadIDBasedMap.hpp"
+#include "transaction/ConcurrencyControl.hpp"
+#include "transaction/DatabaseLockConcurrencyControl.hpp"
 #include "utility/ExecutionDAGVisualizer.hpp"
 #include "utility/Macros.hpp"
 #include "utility/PtrVector.hpp"
@@ -114,6 +116,8 @@ using quickstep::kAdmitRequestMessage;
 using quickstep::kCatalogFilename;
 using quickstep::kPoisonMessage;
 using quickstep::kWorkloadCompletionMessage;
+using quickstep::transaction::ConcurrencyControl;
+using quickstep::transaction::DatabaseLockConcurrencyControl;
 
 using tmb::client_id;
 
@@ -267,12 +271,15 @@ int main(int argc, char* argv[]) {
                                    worker_client_ids,
                                    worker_numa_nodes);
 
+  std::unique_ptr<ConcurrencyControl> concurrency_control(new DatabaseLockConcurrencyControl());
+
   ForemanSingleNode foreman(
       main_thread_client_id,
       &worker_directory,
       &bus,
       query_processor->getDefaultDatabase(),
       &storage_manager,
+      concurrency_control.get(),
       -1,  // Don't pin the Foreman thread.
       num_numa_nodes_system);
 
@@ -360,22 +367,28 @@ int main(int argc, char* argv[]) {
           auto query_handle = std::make_unique<QueryHandle>(query_id,
                                                             main_thread_client_id,
                                                             statement.getPriority());
-          query_processor->generateQueryHandle(statement, query_handle.get());
-          DCHECK(query_handle->getQueryPlanMutable() != nullptr);
+          query_processor->findReferencedBaseRelationsInQuery(statement, query_handle.get());
+          if (concurrency_control->admitTransaction(
+                  concurrency_control->getAccessModesForRelations(statement,
+                                                                  query_handle->getReferencedBaseRelations()),
+                  query_handle.get())) {
+            query_processor->generateQueryHandle(statement, query_handle.get());
+            DCHECK(query_handle->getQueryPlanMutable() != nullptr);
 
-          if (quickstep::FLAGS_visualize_execution_dag) {
-            dag_visualizer =
-                std::make_unique<quickstep::ExecutionDAGVisualizer>(query_handle->getQueryPlan());
+            if (quickstep::FLAGS_visualize_execution_dag) {
+              dag_visualizer =
+                  std::make_unique<quickstep::ExecutionDAGVisualizer>(query_handle->getQueryPlan());
+            }
+            query_result_relation = query_handle->getQueryResultRelation();
+            start = std::chrono::steady_clock::now();
+            QueryExecutionUtil::ConstructAndSendAdmitRequestMessage(
+                main_thread_client_id,
+                foreman.getBusClientID(),
+                query_handle.release(),
+                &bus);
+          } else {
+            // Concurrency control cannot admit this transaction.
           }
-
-          query_result_relation = query_handle->getQueryResultRelation();
-
-          start = std::chrono::steady_clock::now();
-          QueryExecutionUtil::ConstructAndSendAdmitRequestMessage(
-              main_thread_client_id,
-              foreman.getBusClientID(),
-              query_handle.release(),
-              &bus);
         } catch (const quickstep::SqlError &sql_error) {
           fprintf(io_handle->err(), "%s", sql_error.formatMessage(*command_string).c_str());
           reset_parser = true;

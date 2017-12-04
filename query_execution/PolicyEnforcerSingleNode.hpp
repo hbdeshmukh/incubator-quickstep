@@ -27,6 +27,7 @@
 #include "query_execution/PolicyEnforcerBase.hpp"
 #include "query_execution/QueryExecutionMessages.pb.h"
 #include "query_execution/WorkerDirectory.hpp"
+#include "transaction/ConcurrencyControl.hpp"
 #include "utility/Macros.hpp"
 
 #include "tmb/id_typedefs.h"
@@ -39,6 +40,7 @@ class CatalogDatabaseLite;
 class QueryHandle;
 class StorageManager;
 class WorkerMessage;
+class ConcurrencyControl;
 
 /** \addtogroup QueryExecution
  *  @{
@@ -64,13 +66,15 @@ class PolicyEnforcerSingleNode final : public PolicyEnforcerBase {
                            CatalogDatabaseLite *catalog_database,
                            StorageManager *storage_manager,
                            WorkerDirectory *worker_directory,
-                           tmb::MessageBus *bus)
+                           tmb::MessageBus *bus,
+                           transaction::ConcurrencyControl *concurrency_control)
       : PolicyEnforcerBase(catalog_database),
         foreman_client_id_(foreman_client_id),
         num_numa_nodes_(num_numa_nodes),
         storage_manager_(storage_manager),
         worker_directory_(worker_directory),
-        bus_(bus) {}
+        bus_(bus),
+        concurrency_control_(concurrency_control) {}
 
   /**
    * @brief Destructor.
@@ -88,6 +92,14 @@ class PolicyEnforcerSingleNode final : public PolicyEnforcerBase {
   void getWorkerMessages(
       std::vector<std::unique_ptr<WorkerMessage>> *worker_messages);
 
+  bool admitQueries(const std::vector<QueryHandle*> &query_handles) override;
+
+  void removeQuery(const std::size_t query_id) override;
+
+  bool hasQueries() const override;
+
+  void checkQueryCompletion(size_t query_id, QueryManagerBase::dag_node_index op_index) override;
+
  private:
   void decrementNumQueuedWorkOrders(const serialization::WorkOrderCompletionMessage &proto) override {
     worker_directory_->decrementNumQueuedWorkOrders(proto.worker_thread_index());
@@ -100,6 +112,8 @@ class PolicyEnforcerSingleNode final : public PolicyEnforcerBase {
   WorkerDirectory *worker_directory_;
 
   tmb::MessageBus *bus_;
+
+  transaction::ConcurrencyControl *concurrency_control_;
 
   DISALLOW_COPY_AND_ASSIGN(PolicyEnforcerSingleNode);
 };

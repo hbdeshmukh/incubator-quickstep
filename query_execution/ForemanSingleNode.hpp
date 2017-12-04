@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "query_execution/ForemanBase.hpp"
+#include "transaction/ConcurrencyControl.hpp"
 #include "utility/Macros.hpp"
 
 #include "tmb/id_typedefs.h"
@@ -58,6 +59,7 @@ class ForemanSingleNode final : public ForemanBase {
    * @param bus A pointer to the TMB.
    * @param catalog_database The catalog database where this query is executed.
    * @param storage_manager The StorageManager to use.
+   * @param concurrency_control The concurrency control object.
    * @param cpu_id The ID of the CPU to which the Foreman thread can be pinned.
    * @param num_numa_nodes The number of NUMA nodes in the system.
    *
@@ -69,6 +71,7 @@ class ForemanSingleNode final : public ForemanBase {
           tmb::MessageBus *bus,
           CatalogDatabaseLite *catalog_database,
           StorageManager *storage_manager,
+          transaction::ConcurrencyControl *concurrency_control,
           const int cpu_id = -1,
           const std::size_t num_numa_nodes = 1);
 
@@ -112,6 +115,8 @@ class ForemanSingleNode final : public ForemanBase {
   WorkerDirectory *worker_directory_;
 
   StorageManager *storage_manager_;
+
+  transaction::ConcurrencyControl *concurrency_control_;
 
   DISALLOW_COPY_AND_ASSIGN(ForemanSingleNode);
 };

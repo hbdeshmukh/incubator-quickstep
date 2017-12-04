@@ -792,6 +792,8 @@ if (ENABLE_DISTRIBUTED)
                         quickstep_storage_DataExchangerAsync
                         quickstep_storage_StorageBlockInfo
                         quickstep_storage_StorageManager
+                        quickstep_transaction_ConcurrencyControl
+                        quickstep_transaction_DatabaseLockConcurrencyControl
                         quickstep_utility_Macros
                         quickstep_utility_SqlError
                         quickstep_utility_StringUtil
