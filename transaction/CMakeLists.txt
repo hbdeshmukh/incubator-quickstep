@@ -23,6 +23,12 @@ add_library(quickstep_transaction_AccessMode
 add_library(quickstep_transaction_CycleDetector
             CycleDetector.cpp
             CycleDetector.hpp)
+add_library(quickstep_transaction_ConcurrencyControl
+            ../empty_src.cpp
+            ConcurrencyControl.hpp)
+add_library(quickstep_transaction_DatabaseLockConcurrencyControl
+            ../empty_src.cpp
+            DatabaseLockConcurrencyControl.hpp)
 add_library(quickstep_transaction_DeadLockDetector
             DeadLockDetector.cpp
             DeadLockDetector.cpp)
@@ -57,6 +63,15 @@ add_library(quickstep_transaction_TransactionTable
 target_link_libraries(quickstep_transaction_CycleDetector
                       quickstep_transaction_DirectedGraph
                       quickstep_transaction_StronglyConnectedComponents
+                      quickstep_utility_Macros)
+target_link_libraries(quickstep_transaction_ConcurrencyControl
+                      quickstep_transaction_AccessMode
+                      quickstep_transaction_ResourceId
+                      quickstep_utility_Macros)
+target_link_libraries(quickstep_transaction_DatabaseLockConcurrencyControl
+                      quickstep_transaction_ConcurrencyControl
+                      quickstep_transaction_Transaction
+                      quickstep_utility_ThreadSafeQueue
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_transaction_DeadLockDetector
                       glog
@@ -115,7 +130,9 @@ add_library(quickstep_transaction
             TransactionModule.hpp)
 target_link_libraries(quickstep_transaction
                       quickstep_transaction_AccessMode
+                      quickstep_transaction_ConcurrencyControl
                       quickstep_transaction_CycleDetector
+                      quickstep_transaction_DatabaseLockConcurrencyControl
                       quickstep_transaction_DeadLockDetector
                       quickstep_transaction_DirectedGraph
                       quickstep_transaction_Lock

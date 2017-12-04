@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <limits>
 
 namespace quickstep {
 namespace transaction {
@@ -35,6 +36,9 @@ namespace transaction {
  * @brief Type that represents id of a transaction.
  **/
 typedef std::uint64_t transaction_id;
+
+const transaction_id kInvalidTransactionID =
+    std::numeric_limits<std::uint64_t>::max();
 
 /**
  * @brief Enum class for transaction internal status.
