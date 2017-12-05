@@ -100,7 +100,7 @@ QueryManagerSingleNode::QueryManagerSingleNode(
     }
     case kPipeline: {
       scheduling_strategy_.reset(new PipelineScheduling(
-          query_dag_, dag_analyzer_.get(), workorders_container_.get(), *query_exec_state_));
+          dag_analyzer_.get(), workorders_container_.get(), *query_exec_state_));
       break;
     }
     default: {

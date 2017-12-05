@@ -168,7 +168,6 @@ target_link_libraries(quickstep_queryexecution_PipelineScheduling
                       quickstep_queryexecution_QueryExecutionState
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_relationaloperators_RelationalOperator
-                      quickstep_utility_DAG
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_PolicyEnforcerBase
                       glog

@@ -21,12 +21,10 @@
 #define QUICKSTEP_QUERY_EXECUTION_DAG_ANALYZER_HPP_
 
 #include <cstddef>
-#include <deque>
 #include <memory>
 #include <queue>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "query_execution/Pipeline.hpp"
@@ -87,119 +85,22 @@ class DAGAnalyzer {
     return result_pipelines;
   }
 
-  /**
-   * @brief Check if pipeline has dependencies.
-   *
-   * @note This is a static check, i.e. it relies on the initial configuration
-   *       of the DAG and doesn't care about updates in the DAG.
-   *
-   * @param pipeline_id The ID of the pipeline.
-   *
-   * @return True if the pipeline has dependencies, false otherwise.
-   **/
-  bool checkPipelinehasDependenciesStatic(const std::size_t pipeline_id) const {
-    return !getPipelinesConnectedToStart(pipeline_id).empty();
-  }
-
-  /**
-   * @brief Get the pipelines that are connected to the start of the given
-   *        pipeline.
-   **/
-  std::unordered_set<std::size_t> getPipelinesConnectedToStart(
-      const std::size_t pipeline_id) const {
-    const std::size_t pipeline_start_node_id =
-        pipelines_[pipeline_id]->getPipelineStartPoint();
-    auto dependency_nodes = query_plan_dag_->getDependencies(pipeline_start_node_id);
-    auto pipelines_containing_dependency_nodes =
-        getPipelinesForNodes(dependency_nodes);
-    // Remove self pipeline_id from this set.
-    removeElementFromSet(&pipelines_containing_dependency_nodes, pipeline_id);
-    return pipelines_containing_dependency_nodes;
-  }
-
-  /**
-   * @brief Get the pipelines that are connected to the end of the given
-   *        pipeline.
-   **/
-  std::unordered_set<std::size_t> getPipelinesConnectedToEnd(
-      const std::size_t pipeline_id) const {
-    const std::size_t pipeline_end_node_id =
-        pipelines_[pipeline_id]->getPipelineEndPoint();
-    auto pipelines_containing_dependent_nodes = getPipelinesForNodes(
-        query_plan_dag_->getDependentsAsSet(pipeline_end_node_id));
-    // Remove self pipeline_id from this set.
-    removeElementFromSet(&pipelines_containing_dependent_nodes, pipeline_id);
-    return pipelines_containing_dependent_nodes;
-  }
-
-  /**
-   * @brief Get the pipelines which are connected (and end) at an intermediate
-   *        node of the given pipeline.
-   *
-   * @note This function is only relevant if there exists an intermediate node
-   *       in the pipeline, i.e. len(pipeline) > 2.
-   *
-   * @note Because of the condition that "a node with more than one dependencies
-   *       should belong to its own pipeline", this function will always result
-   *       empty vector.
-   **/
-  std::unordered_set<std::size_t> getPipelinesEndingAtIntermediateNode(
-      const std::size_t pipeline_id) {
-    std::unordered_set<std::size_t> result_pipelines;
-    return result_pipelines;
-  }
-
-  /**
-   * @brief Get the pipelines which are connected (and begin ) at an
-   *        intermediate node of the given pipeline.
-   *
-   * @note This function is only relevant if there exists an intermediate node
-   *       in the pipeline, i.e. len(pipeline) > 2.
-   **/
-  std::unordered_set<std::size_t> getPipelinesStartingAtIntermediateNode(
-      const std::size_t pipeline_id) {
-    std::unordered_set<std::size_t> result_pipelines;
-    if (pipelines_[pipeline_id]->size() > 2u) {
-      // Find the intermediate nodes.
-      auto all_nodes = pipelines_[pipeline_id]->getOperatorIDs();
-      std::unordered_set<std::size_t> intermediate_nodes;
-      auto begin_it = all_nodes.begin() + 1;
-      auto end_it = all_nodes.end() - 1;
-      intermediate_nodes.insert(begin_it, end_it);
-      result_pipelines = getPipelinesForNodes(intermediate_nodes);
-      removeElementFromSet(&result_pipelines, pipeline_id);
-    }
-    return result_pipelines;
-  }
-
-  /**
-   * @brief Get the pipelines that don't have a dependency pipeline.
-   *
-   * @note This is a static check, performed by disregarding the state of the DAG.
-   **/
-  std::vector<std::size_t> getFreePipelinesStatic() const {
-    std::vector<std::size_t> free_pipelines;
-    for (std::size_t id = 0; id < pipelines_.size(); ++id) {
-      if (!checkPipelinehasDependenciesStatic(id)) {
-        free_pipelines.emplace_back(id);
-      }
-    }
-    return free_pipelines;
-  }
-
   const std::vector<std::size_t>& getAllOperatorsInPipeline(
       const std::size_t pipeline_id) const {
     DCHECK_LT(pipeline_id, pipelines_.size());
     return pipelines_[pipeline_id]->getOperatorIDs();
   }
 
-  const std::vector<std::size_t> getAllBlockingDependencies(
-      const std::size_t pipeline_id) const {
-    return pipelines_[pipeline_id]->getAllBlockingDependencies();
-  }
-
   const std::vector<std::size_t>& getPipelineSequence() const {
     return pipeline_sequence_;
+  }
+
+  const std::vector<std::size_t>& getEssentialPipelineSequence() const {
+    return essential_pipeline_sequence_;
+  }
+
+  const bool isPipelineEssential(const std::size_t pid) const {
+    return pipelines_[pid]->isEssential();
   }
 
   void visualizePipelines();
@@ -207,9 +108,23 @@ class DAGAnalyzer {
   void generateEssentialPipelineSequence(const size_t topmost_pipeline_id,
                                          std::queue<std::size_t> *sequence) const;
 
-  std::vector<std::size_t> generateFinalPipelineSequence() const;
+  std::vector<std::size_t> generateFinalPipelineSequence();
 
-  std::vector<std::size_t> getEssentialPipelines() const;
+  std::vector<std::size_t> generateEssentialPipelines() const;
+
+  void splitEssentialAndNonEssentialPipelines(
+      const std::vector<std::size_t> &full_sequence,
+      std::unordered_map<std::size_t, std::vector<std::size_t>> *non_essential_successors) const {
+    std::size_t curr_pid = 0;
+    for (const std::size_t pid : full_sequence) {
+      if (isEssentialNode(pid)) {
+        curr_pid = pid;
+        (*non_essential_successors)[pid];
+      } else {
+        (*non_essential_successors)[curr_pid].emplace_back(pid);
+      }
+    }
+  }
 
   std::size_t getPipelineIDForOperator(std::size_t operator_id) const {
     DCHECK(operator_to_pipeline_lookup_.find(operator_id) != operator_to_pipeline_lookup_.end());
@@ -252,35 +167,6 @@ class DAGAnalyzer {
    **/
   const std::size_t getTotalNodes();
 
-  std::unordered_set<std::size_t> getPipelinesForNodes(
-      std::unordered_set<std::size_t> node_ids) const {
-    std::unordered_set<std::size_t> pipelines;
-    if (!node_ids.empty()) {
-      for (auto node_id : node_ids) {
-        auto pipelines_containing_node_id = getPipelineID(node_id);
-        pipelines.insert(pipelines_containing_node_id.begin(),
-                         pipelines_containing_node_id.end());
-      }
-    }
-    return pipelines;
-  }
-
-  void removeElementFromVector(std::vector<std::size_t> *vec,
-                               std::size_t elem_removed) const {
-    auto it = std::find(vec->begin(), vec->end(), elem_removed);
-    if (it != vec->end()) {
-      vec->erase(it);
-    }
-  }
-
-  void removeElementFromSet(std::unordered_set<std::size_t> *s,
-                            std::size_t elem_removed) const {
-    auto it = std::find(s->begin(), s->end(), elem_removed);
-    if (it != s->end()) {
-      s->erase(it);
-    }
-  }
-
   /**
    * @brief Check if src pipeline be fused with dst pipeline.
    **/
@@ -313,7 +199,7 @@ class DAGAnalyzer {
 
   std::size_t getEssentialOutPipelinesCount(const size_t pipeline_id) const;
 
-  std::vector<size_t> getEssentialChildrenPipelines(const size_t pipeline_id) const;
+  void markEssentialNodes();
 
   DAG<RelationalOperator, bool> *query_plan_dag_;
   std::vector<std::unique_ptr<Pipeline>> pipelines_;
@@ -323,6 +209,8 @@ class DAGAnalyzer {
 
   // Key = operator ID, value = pipeline ID to which this operator belongs.
   std::unordered_map<std::size_t, std::size_t> operator_to_pipeline_lookup_;
+
+  std::vector<std::size_t> essential_pipeline_sequence_;
 
   DISALLOW_COPY_AND_ASSIGN(DAGAnalyzer);
 };

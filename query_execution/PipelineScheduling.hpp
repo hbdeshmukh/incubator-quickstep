@@ -26,7 +26,6 @@
 
 #include "query_execution/IntraQuerySchedulingStrategy.hpp"
 #include "relational_operators/RelationalOperator.hpp"
-#include "utility/DAG.hpp"
 #include "utility/Macros.hpp"
 
 namespace quickstep {
@@ -39,13 +38,11 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
  public:
   /**
    * @brief Constructor
-   * @param query_dag The query plan DAG
    * @param dag_analyzer The DAG analyzer
    * @param workorders_container The WorkOrdersContainer object for this query.
    * @param query_exec_state The QueryExecutionState object.
    */
-  PipelineScheduling(DAG<RelationalOperator, bool> *query_dag,
-                     const DAGAnalyzer *dag_analyzer,
+  PipelineScheduling(const DAGAnalyzer *dag_analyzer,
                      WorkOrdersContainer *workorders_container,
                      const QueryExecutionState &query_exec_state);
 
@@ -59,16 +56,25 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
  private:
   bool isPipelineExecutionOver(std::size_t pipeline_id) const;
 
-  const DAG<RelationalOperator, bool> *query_dag_;
+  void moveNextEssentialPipelineToRunning();
+
+  int getNextOperatorHelper() const;
+
   const DAGAnalyzer *dag_analyzer_;
 
   WorkOrdersContainer *container_;
 
   const QueryExecutionState &query_exec_state_;
 
-  std::queue<std::size_t> pipelines_not_started_;
+  std::queue<std::size_t> essential_pipelines_not_started_;
 
   std::vector<std::size_t> running_pipelines_;
+
+  std::vector<std::size_t> essential_pipelines_;
+
+  // Key = essential pipeline ID
+  // Value = sequence of non-essential pipelines that follow the essential pipeline.
+  std::unordered_map<std::size_t, std::vector<std::size_t>> non_essential_successors_;
 
   DISALLOW_COPY_AND_ASSIGN(PipelineScheduling);
 };

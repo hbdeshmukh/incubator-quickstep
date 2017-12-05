@@ -31,26 +31,36 @@
 
 namespace quickstep {
 
-PipelineScheduling::PipelineScheduling(DAG<RelationalOperator, bool> *query_dag,
-                                       const DAGAnalyzer *dag_analyzer,
+PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
                                        WorkOrdersContainer *workorders_container,
                                        const QueryExecutionState &query_exec_state)
-    : query_dag_(query_dag),
-      dag_analyzer_(dag_analyzer),
+    : dag_analyzer_(dag_analyzer),
       container_(workorders_container),
       query_exec_state_(query_exec_state) {
   DCHECK(!dag_analyzer_->getPipelineSequence().empty());
-  for (auto pid : dag_analyzer->getPipelineSequence()) {
-    pipelines_not_started_.push(pid);
+  const std::vector<std::size_t> all_pipelines_sequence(dag_analyzer_->getPipelineSequence());
+  const std::vector<std::size_t> essential_pipelines_sequence(dag_analyzer_->getEssentialPipelineSequence());
+  dag_analyzer_->splitEssentialAndNonEssentialPipelines(
+      all_pipelines_sequence, &non_essential_successors_);
+  for (auto pid : essential_pipelines_) {
+    essential_pipelines_not_started_.push(pid);
   }
-  running_pipelines_.emplace_back(pipelines_not_started_.front());
-  pipelines_not_started_.pop();
+  moveNextEssentialPipelineToRunning();
 }
 
-int PipelineScheduling::getNextOperator() {
+void PipelineScheduling::moveNextEssentialPipelineToRunning() {
+  if (!essential_pipelines_not_started_.empty()) {
+    running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
+    essential_pipelines_not_started_.pop();
+  }
+}
+
+int PipelineScheduling::getNextOperatorHelper() const {
   for (std::size_t active_pipeline_id : running_pipelines_) {
     auto all_operators_in_active_pipeline = dag_analyzer_->getAllOperatorsInPipeline(active_pipeline_id);
-    for (auto it = all_operators_in_active_pipeline.rbegin(); it != all_operators_in_active_pipeline.rend(); ++it) {
+    for (auto it = all_operators_in_active_pipeline.rbegin();
+         it != all_operators_in_active_pipeline.rend();
+         ++it) {
       const std::size_t curr_operator_id = *it;
       if (!query_exec_state_.hasExecutionFinished(curr_operator_id)
           && container_->getNumTotalWorkOrders(curr_operator_id) > 0) {
@@ -58,20 +68,32 @@ int PipelineScheduling::getNextOperator() {
       }
     }
   }
-  // Current running pipelines don't have any available work.
   return -1;
+}
+
+int PipelineScheduling::getNextOperator() {
+  int next_operator_id = getNextOperatorHelper();
+  if (next_operator_id == -1) {
+    // If there's another essential pipeline that's not running, try including it.
+    moveNextEssentialPipelineToRunning();
+    next_operator_id = getNextOperatorHelper();
+  }
+  return next_operator_id;
 }
 
 void PipelineScheduling::informCompletionOfOperator(std::size_t operator_index) {
   const std::size_t pipeline_for_operator = dag_analyzer_->getPipelineIDForOperator(operator_index);
-  if (dag_analyzer_->getAllOperatorsInPipeline(pipeline_for_operator).size() == 1u
-      || isPipelineExecutionOver(pipeline_for_operator)) {
+  if (isPipelineExecutionOver(pipeline_for_operator)) {
     // Remove the finished pipeline from the list of running pipelines.
     auto it = std::find(running_pipelines_.begin(), running_pipelines_.end(), pipeline_for_operator);
     running_pipelines_.erase(it);
-    if (!pipelines_not_started_.empty()) {
-      running_pipelines_.emplace_back(pipelines_not_started_.front());
-      pipelines_not_started_.pop();
+    if (dag_analyzer_->isPipelineEssential(pipeline_for_operator)) {
+      // Move all the non-essential successors of this pipeline to running pipelines.
+      running_pipelines_.insert(running_pipelines_.end(),
+                                non_essential_successors_[pipeline_for_operator].begin(),
+                                non_essential_successors_[pipeline_for_operator].end());
+      // In addition, move the next essential pipeline to running list too.
+      moveNextEssentialPipelineToRunning();
     }
   }
 }

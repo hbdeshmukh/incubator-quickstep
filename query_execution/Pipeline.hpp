@@ -110,7 +110,7 @@ class Pipeline {
    * @param operator_ids The IDs of the operator belonging to the pipeline.
    **/
   explicit Pipeline(const std::vector<std::size_t> &operator_ids)
-      : operators_(operator_ids) {}
+      : operators_(operator_ids), is_essential_(false) {}
 
   /**
    * @brief Constructor for a single node pipeline.
@@ -144,6 +144,14 @@ class Pipeline {
   bool hasOperator(const std::size_t operator_id) const {
     return std::find(operators_.begin(), operators_.end(), operator_id) !=
            operators_.end();
+  }
+
+  void markEssential() {
+    is_essential_ = true;
+  }
+
+  bool isEssential() const {
+    return is_essential_;
   }
 
   /**
@@ -231,6 +239,9 @@ class Pipeline {
 
   // Key = operator ID, value = connected pipeline to the key operator.
   std::vector<PipelineConnection> connected_pipelines_;
+
+  // Whether the pipeline is essential or non-essential (DestroyHash, DropTable)
+  bool is_essential_;
 
   DISALLOW_COPY_AND_ASSIGN(Pipeline);
 };

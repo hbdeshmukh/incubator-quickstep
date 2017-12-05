@@ -149,6 +149,7 @@ void DAGAnalyzer::findPipelines() {
   // appear as A->B->C.
   // Make sure that all nodes belong to some pipeline exactly once.
   DCHECK_EQ(query_plan_dag_->size(), getTotalNodes());
+  markEssentialNodes();
 }
 
 const std::size_t DAGAnalyzer::getTotalNodes() {
@@ -206,6 +207,14 @@ bool DAGAnalyzer::isEssentialNode(const std::size_t pipeline_id) const {
   }
   // Always display a pipeline node with more than one operators.
   return true;
+}
+
+void DAGAnalyzer::markEssentialNodes() {
+  for (std::size_t pid = 0; pid < pipelines_.size(); ++pid) {
+    if (isEssentialNode(pid)) {
+      pipelines_[pid]->markEssential();
+    }
+  }
 }
 
 std::string DAGAnalyzer::visualizePipelinesHelper(
@@ -296,7 +305,8 @@ bool DAGAnalyzer::canPipelinesBeFused(const std::size_t src_pipeline_id,
   if (query_plan_dag_->hasLink(src_end_operator_id, dst_start_operator_id)) {
     const bool is_pipeline_breaker =
         query_plan_dag_->getLinkMetadata(src_end_operator_id, dst_start_operator_id);
-    DLOG(INFO) << "Link between " << src_end_operator_id << " and " << dst_start_operator_id << " is pipeline breaker? " << is_pipeline_breaker << std::endl;
+    DLOG(INFO) << "Link between " << src_end_operator_id << " and "
+               << dst_start_operator_id << " is pipeline breaker? " << is_pipeline_breaker << std::endl;
     return !is_pipeline_breaker;
   } else {
     DLOG(INFO) << "No Link between " << src_end_operator_id << " and " << dst_start_operator_id << std::endl;
@@ -304,7 +314,8 @@ bool DAGAnalyzer::canPipelinesBeFused(const std::size_t src_pipeline_id,
   }
 }
 
-void DAGAnalyzer::generateEssentialPipelineSequence(const std::size_t topmost_pipeline_id, std::queue<std::size_t> *sequence) const {
+void DAGAnalyzer::generateEssentialPipelineSequence(
+    const std::size_t topmost_pipeline_id, std::queue<std::size_t> *sequence) const {
   std::vector<PipelineConnection> children(pipelines_[topmost_pipeline_id]->getAllIncomingPipelines());
   if (children.size() == 1u) {
     generateEssentialPipelineSequence(children.front().getConnectedPipelineID(), sequence);
@@ -335,29 +346,21 @@ void DAGAnalyzer::generateEssentialPipelineSequence(const std::size_t topmost_pi
   sequence->push(topmost_pipeline_id);
 }
 
-std::vector<std::size_t> DAGAnalyzer::getEssentialPipelines() const {
-  std::vector<std::size_t> useful_pipelines;
+std::vector<std::size_t> DAGAnalyzer::generateEssentialPipelines() const {
+  std::vector<std::size_t> essential_pipelines;
   for (std::size_t pid = 0; pid < pipelines_.size(); ++pid) {
-    if (isEssentialNode(pid)) {
-      useful_pipelines.emplace_back(pid);
+    if (pipelines_[pid]->isEssential()) {
+      essential_pipelines.emplace_back(pid);
     }
   }
-  return useful_pipelines;
-}
-
-
-std::vector<std::size_t> DAGAnalyzer::getEssentialChildrenPipelines(const std::size_t pipeline_id) const {
-  std::vector<std::size_t> essential_children;
-  for (const PipelineConnection &pc : pipelines_[pipeline_id]->getAllIncomingPipelines()) {
-    essential_children.emplace_back(pc.getConnectedPipelineID());
-  }
-  return essential_children;
+  rearrangeEssentialPipelines(&essential_pipelines);
+  return essential_pipelines;
 }
 
 std::size_t DAGAnalyzer::getEssentialOutPipelinesCount(const std::size_t pipeline_id) const {
   std::size_t ret_count = 0;
   for (const PipelineConnection &pc : pipelines_[pipeline_id]->getAllOutgoingPipelines()) {
-    if (isEssentialNode(pc.getConnectedPipelineID())) {
+    if (pipelines_[pc.getConnectedPipelineID()]->isEssential()) {
       ++ret_count;
     }
   }
@@ -380,23 +383,23 @@ void DAGAnalyzer::rearrangeEssentialPipelines(std::vector<std::size_t> *essentia
   });
 }
 
-std::vector<std::size_t> DAGAnalyzer::generateFinalPipelineSequence() const {
+std::vector<std::size_t> DAGAnalyzer::generateFinalPipelineSequence() {
   // Key = pipeline ID, value = # incoming pipelines.
   std::unordered_map<std::size_t, std::size_t> incoming_pipelines_count;
   for (std::size_t pid = 0; pid < pipelines_.size(); ++pid) {
     incoming_pipelines_count[pid] = pipelines_[pid]->getAllIncomingPipelines().size();
   }
   std::vector<bool> visited(pipelines_.size(), false);
-  std::vector<std::size_t> essential_pipelines(getEssentialPipelines());
+  std::vector<std::size_t> essential_pipelines(generateEssentialPipelines());
   std::queue<std::size_t> essential_pipelines_queue;
   DCHECK(!essential_pipelines.empty());
-  rearrangeEssentialPipelines(&essential_pipelines);
   generateEssentialPipelineSequence(essential_pipelines.front(), &essential_pipelines_queue);
   std::queue<std::size_t> essential_pipelines_queue_copy = essential_pipelines_queue;
   // Mark the essential pipelines as "visited".
   while (!essential_pipelines_queue_copy.empty()) {
     const std::size_t curr_pid = essential_pipelines_queue_copy.front();
     essential_pipelines_queue_copy.pop();
+    essential_pipeline_sequence_.emplace_back(curr_pid);
     visited[curr_pid] = true;
   }
   std::vector<std::size_t> final_pipeline_sequence;
