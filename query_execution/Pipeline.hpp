@@ -117,7 +117,7 @@ class Pipeline {
    *
    * @param operator_id The ID of the operator belonging to the pipeline.
    **/
-  explicit Pipeline(const std::size_t operator_id) {
+  explicit Pipeline(const std::size_t operator_id) : is_essential_(false) {
     operators_.emplace_back(operator_id);
   }
 

@@ -39,10 +39,9 @@ PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
       query_exec_state_(query_exec_state) {
   DCHECK(!dag_analyzer_->getPipelineSequence().empty());
   const std::vector<std::size_t> all_pipelines_sequence(dag_analyzer_->getPipelineSequence());
-  const std::vector<std::size_t> essential_pipelines_sequence(dag_analyzer_->getEssentialPipelineSequence());
   dag_analyzer_->splitEssentialAndNonEssentialPipelines(
       all_pipelines_sequence, &non_essential_successors_);
-  for (auto pid : essential_pipelines_) {
+  for (auto pid : dag_analyzer_->getEssentialPipelineSequence()) {
     essential_pipelines_not_started_.push(pid);
   }
   moveNextEssentialPipelineToRunning();
@@ -56,7 +55,11 @@ void PipelineScheduling::moveNextEssentialPipelineToRunning() {
 }
 
 int PipelineScheduling::getNextOperatorHelper() const {
-  for (std::size_t active_pipeline_id : running_pipelines_) {
+  for (auto running_pipeline_iter = running_pipelines_.rbegin();
+       running_pipeline_iter != running_pipelines_.rend();
+       ++running_pipeline_iter) {
+    const std::size_t active_pipeline_id = *running_pipeline_iter;
+  // for (std::size_t active_pipeline_id : running_pipelines_) {
     auto all_operators_in_active_pipeline = dag_analyzer_->getAllOperatorsInPipeline(active_pipeline_id);
     for (auto it = all_operators_in_active_pipeline.rbegin();
          it != all_operators_in_active_pipeline.rend();
