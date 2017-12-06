@@ -54,6 +54,15 @@ void PipelineScheduling::moveNextEssentialPipelineToRunning() {
   }
 }
 
+void PipelineScheduling::moveNextFusableEssentialPipelineToRunning() {
+  if (!essential_pipelines_not_started_.empty()) {
+    if (dag_analyzer_->canPipelinesBeFused(running_pipelines_.back(), essential_pipelines_not_started_.front())) {
+      running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
+      essential_pipelines_not_started_.pop();
+    }
+  }
+}
+
 int PipelineScheduling::getNextOperatorHelper() const {
   for (auto running_pipeline_iter = running_pipelines_.rbegin();
        running_pipeline_iter != running_pipelines_.rend();
@@ -77,8 +86,9 @@ int PipelineScheduling::getNextOperatorHelper() const {
 int PipelineScheduling::getNextOperator() {
   int next_operator_id = getNextOperatorHelper();
   if (next_operator_id == -1) {
-    // If there's another essential pipeline that's not running, try including it.
-    moveNextEssentialPipelineToRunning();
+    // If there's another essential and fusable pipeline that's not running,
+    // add it to the list of running pipelines.
+    moveNextFusableEssentialPipelineToRunning();
     next_operator_id = getNextOperatorHelper();
   }
   return next_operator_id;

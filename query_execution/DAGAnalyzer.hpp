@@ -131,6 +131,12 @@ class DAGAnalyzer {
     return operator_to_pipeline_lookup_.at(operator_id);
   }
 
+  /**
+   * @brief Check if src pipeline be fused with dst pipeline.
+   **/
+  bool canPipelinesBeFused(const std::size_t src_pipeline_id,
+                           const std::size_t dst_pipeline_id) const;
+
  private:
   /**
    * @brief Information of a graph node.
@@ -166,12 +172,6 @@ class DAGAnalyzer {
    * @brief Find the total number of nodes in all pipelines.
    **/
   const std::size_t getTotalNodes();
-
-  /**
-   * @brief Check if src pipeline be fused with dst pipeline.
-   **/
-  bool canPipelinesBeFused(const std::size_t src_pipeline_id,
-                           const std::size_t dst_pipeline_id) const;
 
   bool checkDisplayPipelineNode(const size_t pipeline_id) const;
 

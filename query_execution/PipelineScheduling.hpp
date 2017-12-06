@@ -58,6 +58,11 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
 
   void moveNextEssentialPipelineToRunning();
 
+  /**
+   * @brief Move the next essential and fusable pipeline to the list of running pipelines.
+   */
+  void moveNextFusableEssentialPipelineToRunning();
+
   int getNextOperatorHelper() const;
 
   const DAGAnalyzer *dag_analyzer_;
