@@ -61,7 +61,11 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
   /**
    * @brief Move the next essential and fusable pipeline to the list of running pipelines.
    */
-  void moveNextFusableEssentialPipelineToRunning();
+  bool moveNextFusableEssentialPipelineToRunning();
+
+  void lookAheadForWork();
+
+  bool isPipelineSchedulable(std::size_t pipeline_id) const;
 
   int getNextOperatorHelper() const;
 
@@ -74,8 +78,6 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
   std::queue<std::size_t> essential_pipelines_not_started_;
 
   std::vector<std::size_t> running_pipelines_;
-
-  std::vector<std::size_t> essential_pipelines_;
 
   // Key = essential pipeline ID
   // Value = sequence of non-essential pipelines that follow the essential pipeline.

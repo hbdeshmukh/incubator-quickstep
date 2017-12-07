@@ -54,11 +54,36 @@ void PipelineScheduling::moveNextEssentialPipelineToRunning() {
   }
 }
 
-void PipelineScheduling::moveNextFusableEssentialPipelineToRunning() {
+bool PipelineScheduling::moveNextFusableEssentialPipelineToRunning() {
   if (!essential_pipelines_not_started_.empty()) {
     if (dag_analyzer_->canPipelinesBeFused(running_pipelines_.back(), essential_pipelines_not_started_.front())) {
       running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
       essential_pipelines_not_started_.pop();
+      return true;
+    }
+  }
+  return false;
+}
+
+void PipelineScheduling::lookAheadForWork() {
+  if (!moveNextFusableEssentialPipelineToRunning()) {
+    // Look ahead in the list of essential pipelines.
+    std::stack<std::size_t> non_schedulable_pipelines;
+    while (!essential_pipelines_not_started_.empty()) {
+      std::size_t next_pipeline_id = essential_pipelines_not_started_.front();
+      essential_pipelines_not_started_.pop();
+      if (isPipelineSchedulable(next_pipeline_id)) {
+        running_pipelines_.emplace_back(next_pipeline_id);
+        break;
+      } else {
+        non_schedulable_pipelines.push(next_pipeline_id);
+      }
+    }
+    // Transfer the contents of the stack to the queue again.
+    while (!non_schedulable_pipelines.empty()) {
+      std::size_t next_pipeline = non_schedulable_pipelines.top();
+      non_schedulable_pipelines.pop();
+      essential_pipelines_not_started_.push(next_pipeline);
     }
   }
 }
@@ -88,7 +113,7 @@ int PipelineScheduling::getNextOperator() {
   if (next_operator_id == -1) {
     // If there's another essential and fusable pipeline that's not running,
     // add it to the list of running pipelines.
-    moveNextFusableEssentialPipelineToRunning();
+    lookAheadForWork();
     next_operator_id = getNextOperatorHelper();
   }
   return next_operator_id;
@@ -118,6 +143,15 @@ bool PipelineScheduling::isPipelineExecutionOver(std::size_t pipeline_id) const 
     }
   }
   return true;
+}
+
+bool PipelineScheduling::isPipelineSchedulable(std::size_t pipeline_id) const {
+  for (std::size_t op_id : dag_analyzer_->getAllOperatorsInPipeline(pipeline_id)) {
+    if (container_->getNumTotalWorkOrders(op_id) > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace quickstep

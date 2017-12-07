@@ -115,6 +115,12 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       std::cout << i << ":";
     }
     std::cout << std::endl;
+    std::cout << "Essential pipeline sequence: \n";
+    for (auto i : dag_analyzer_->getEssentialPipelineSequence()) {
+      std::cout << i << ":";
+    }
+    std::cout << std::endl;
+
   }
   for (const dag_node_index index : non_dependent_operators_) {
     if (!fetchNormalWorkOrders(index)) {
