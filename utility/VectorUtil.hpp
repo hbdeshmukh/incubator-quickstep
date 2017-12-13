@@ -20,7 +20,10 @@
 #ifndef QUICKSTEP_UTILITY_VECTOR_UTIL_HPP_
 #define QUICKSTEP_UTILITY_VECTOR_UTIL_HPP_
 
+#include <array>
 #include <vector>
+
+#include "glog/logging.h"
 
 namespace quickstep {
 
@@ -44,6 +47,78 @@ bool AppendToVectorIfNotPresent(const Type &item, std::vector<Type> *vec) {
   }
   vec->push_back(item);
   return true;
+}
+
+/**
+ * @brief Get a permutation of the given vector with the given rank.
+ *
+ * @note In order to be efficient, we only allow vectors until certain length.
+ *       If this condition is not met, we return an empty vector.
+ *
+ * @param elements The vector
+ * @param permutation_rank The rank of the desired permutation.
+ * @return A copy of the permuted vector.
+ */
+template <class Type>
+std::vector<Type> GetPermutationOfVector(
+    const std::vector<Type> &elements, std::size_t permutation_rank) {
+  std::vector<Type> result;
+  std::array<std::array<int, 4>, 24> permutations_of_4 = {{
+                                                              {0, 1, 2, 3},
+                                                              {0, 1, 3, 2},
+                                                              {0, 2, 1, 3},
+                                                              {0, 2, 3, 1},
+                                                              {0, 3, 1, 2},
+                                                              {0, 3, 2, 1},
+                                                              {1, 0, 2, 3},
+                                                              {1, 0, 3, 2},
+                                                              {1, 2, 0, 3},
+                                                              {1, 2, 3, 0},
+                                                              {1, 3, 0, 2},
+                                                              {1, 3, 2, 0},
+                                                              {2, 0, 1, 3},
+                                                              {2, 0, 3, 1},
+                                                              {2, 1, 0, 3},
+                                                              {2, 1, 3, 0},
+                                                              {2, 3, 0, 1},
+                                                              {2, 3, 1, 0},
+                                                              {3, 0, 1, 2},
+                                                              {3, 0, 2, 1},
+                                                              {3, 1, 0, 2},
+                                                              {3, 1, 2, 0},
+                                                              {3, 2, 0, 1},
+                                                              {3, 2, 1, 0},
+                                                          }};
+
+  std::array<std::array<int, 3>, 6> permutations_of_3 = {{
+                                                                    {0, 1, 2},
+                                                                    {0, 2, 1},
+                                                                    {1, 0, 2},
+                                                                    {1, 2, 0},
+                                                                    {2, 0, 1},
+                                                                    {2, 1, 0},
+                                                                }};
+
+  switch (elements.size()) {
+    case 3: {
+      DCHECK_LT(permutation_rank, permutations_of_3.size());
+      for (int permuted_index : permutations_of_3[permutation_rank]) {
+        result.push_back(elements[permuted_index]);
+      }
+      break;
+    }
+    case 4: {
+      DCHECK_LT(permutation_rank, permutations_of_4.size());
+      for (int permuted_index : permutations_of_4[permutation_rank]) {
+        result.push_back(elements[permuted_index]);
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  return result;
 }
 
 /** @} */

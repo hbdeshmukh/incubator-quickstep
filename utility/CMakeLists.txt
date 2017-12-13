@@ -349,6 +349,8 @@ target_link_libraries(quickstep_utility_ThreadSafeQueue
 target_link_libraries(quickstep_utility_TreeStringSerializable
                       glog
                       quickstep_utility_Macros)
+target_link_libraries(quickstep_utility_VectorUtil
+                      glog)
 
 # Module all-in-one library:
 add_library(quickstep_utility ../empty_src.cpp UtilityModule.hpp)

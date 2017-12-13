@@ -306,6 +306,7 @@ target_link_libraries(quickstep_queryexecution_QueryManagerSingleNode
                       quickstep_storage_StorageBlock
                       quickstep_utility_DAG
                       quickstep_utility_Macros
+                      quickstep_utility_VectorUtil
                       tmb)
 if (ENABLE_DISTRIBUTED)
   target_link_libraries(quickstep_queryexecution_Shiftboss

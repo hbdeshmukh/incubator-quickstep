@@ -35,6 +35,7 @@
 #include "storage/InsertDestination.hpp"
 #include "storage/StorageBlock.hpp"
 #include "utility/DAG.hpp"
+#include "utility/VectorUtil.hpp"
 
 #include "glog/logging.h"
 
@@ -43,6 +44,8 @@
 namespace quickstep {
 
 class WorkOrder;
+
+DEFINE_uint64(permutation_rank, 0, "The rank of the permutation of the leaf level operators, begins from 0.");
 
 QueryManagerSingleNode::QueryManagerSingleNode(
     const tmb::client_id foreman_client_id,
@@ -63,16 +66,12 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
-  std::random_device rd;
-  std::mt19937 g(rd());
-
-  std::shuffle(non_dependent_operators_.begin(), non_dependent_operators_.end(), g);
-
+  std::vector<dag_node_index> permutation_of_leaves =
+      GetPermutationOfVector(non_dependent_operators_, FLAGS_permutation_rank);
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
-  // for (const dag_node_index index : non_dependent_operators_) {
   std::cout << "Calling leaves in the order: ";
-  for (auto it = non_dependent_operators_.begin();
-       it != non_dependent_operators_.end();
+  for (auto it = permutation_of_leaves.begin();
+       it != permutation_of_leaves.end();
        ++it) {
     const dag_node_index index = *it;
     std::cout << index << ":";
