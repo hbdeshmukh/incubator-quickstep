@@ -19,8 +19,10 @@
 
 #include "query_execution/QueryManagerSingleNode.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -61,13 +63,25 @@ QueryManagerSingleNode::QueryManagerSingleNode(
       workorders_container_(
           new WorkOrdersContainer(num_operators_in_dag_, num_numa_nodes)),
       database_(static_cast<const CatalogDatabase&>(*catalog_database)) {
+  std::random_device rd;
+  std::mt19937 g(rd());
+
+  std::shuffle(non_dependent_operators_.begin(), non_dependent_operators_.end(), g);
+
   // Collect all the workorders from all the non-blocking relational operators in the DAG.
-  for (const dag_node_index index : non_dependent_operators_) {
+  // for (const dag_node_index index : non_dependent_operators_) {
+  std::cout << "Calling leaves in the order: ";
+  for (auto it = non_dependent_operators_.begin();
+       it != non_dependent_operators_.end();
+       ++it) {
+    const dag_node_index index = *it;
+    std::cout << index << ":";
     if (!fetchNormalWorkOrders(index)) {
       DCHECK(!checkRebuildRequired(index) || initiateRebuild(index));
       markOperatorFinished(index);
     }
   }
+  std::cout << std::endl;
 }
 
 WorkerMessage* QueryManagerSingleNode::getNextWorkerMessage(
