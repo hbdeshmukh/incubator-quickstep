@@ -46,6 +46,12 @@ DEFINE_bool(profile_and_report_workorder_perf, false,
     "If true, Quickstep will record the exceution time of all the individual "
     "normal work orders and report it at the end of query execution.");
 
+DEFINE_int64(memory_profiling_frequency,
+              10,
+              "Record the memory consumption and log it at this frequency. "
+              "This frequency is measured by the number of normal or rebuild "
+              "work orders completed.");
+
 PolicyEnforcerBase::PolicyEnforcerBase(CatalogDatabaseLite *catalog_database)
     : catalog_database_(catalog_database),
       profile_individual_workorders_(FLAGS_profile_and_report_workorder_perf || FLAGS_visualize_execution_dag) {
@@ -73,7 +79,7 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
 
       op_index = proto.operator_index();
       admitted_queries_[query_id]->processWorkOrderCompleteMessage(op_index, proto.partition_id());
-      LOG(INFO) << "Memory: " << getCurrentMemoryUsageInBytes();
+      LOG(INFO) << "Memory (bytes): " << getCurrentMemoryUsageInBytes();
       break;
     }
     case kRebuildWorkOrderCompleteMessage: {
@@ -89,7 +95,7 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
 
       op_index = proto.operator_index();
       admitted_queries_[query_id]->processRebuildWorkOrderCompleteMessage(op_index, proto.partition_id());
-      LOG(INFO) << "Memory: " << getCurrentMemoryUsageInBytes();
+      LOG(INFO) << "Memory (bytes): " << getCurrentMemoryUsageInBytes();
       break;
     }
     case kCatalogRelationNewBlockMessage: {
