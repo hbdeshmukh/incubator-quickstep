@@ -328,11 +328,11 @@ void DAGAnalyzer::generateEssentialPipelineSequence(
           a_end_op_type = query_plan_dag_->getNodePayload(a_end_point_operator_id).getOperatorType();
       const RelationalOperator::OperatorType
           b_end_op_type = query_plan_dag_->getNodePayload(b_end_point_operator_id).getOperatorType();
-      if (a_end_op_type == RelationalOperator::OperatorType::kSelect &&
+      if (a_end_op_type != RelationalOperator::OperatorType::kBuildHash &&
           b_end_op_type == RelationalOperator::OperatorType::kBuildHash) {
         return false;
       } else if (a_end_op_type == RelationalOperator::OperatorType::kBuildHash &&
-                 b_end_op_type == RelationalOperator::OperatorType::kSelect) {
+                 b_end_op_type != RelationalOperator::OperatorType::kBuildHash) {
         return true;
       } else {
         // Execute operator with lower ID earlier.
