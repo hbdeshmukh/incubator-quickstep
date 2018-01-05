@@ -20,16 +20,22 @@
 #include <algorithm>
 #include <cstddef>
 #include <queue>
+#include <stack>
 #include <vector>
 
 #include "query_execution/PipelineScheduling.hpp"
 #include "query_execution/DAGAnalyzer.hpp"
 #include "query_execution/QueryExecutionState.hpp"
 #include "query_execution/WorkOrdersContainer.hpp"
+#include "query_execution/intra_pipeline_scheduling/FIFO.hpp"
+#include "query_execution/intra_pipeline_scheduling/LIFO.hpp"
+#include "query_execution/intra_pipeline_scheduling/Random.hpp"
 
 #include "glog/logging.h"
 
 namespace quickstep {
+
+namespace IP = ::quickstep::intra_pipeline;
 
 PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
                                        WorkOrdersContainer *workorders_container,
@@ -44,20 +50,26 @@ PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
   for (auto pid : dag_analyzer_->getEssentialPipelineSequence()) {
     essential_pipelines_not_started_.push(pid);
   }
+  intra_pipeline_scheduling_.reset(new IP::FIFO(query_exec_state, dag_analyzer, workorders_container));
   moveNextEssentialPipelineToRunning();
 }
 
 void PipelineScheduling::moveNextEssentialPipelineToRunning() {
   if (!essential_pipelines_not_started_.empty()) {
-    running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
+    // running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
+    intra_pipeline_scheduling_->signalStartOfPipelines({essential_pipelines_not_started_.front()});
     essential_pipelines_not_started_.pop();
   }
 }
 
 bool PipelineScheduling::moveNextFusableEssentialPipelineToRunning() {
   if (!essential_pipelines_not_started_.empty()) {
-    if (dag_analyzer_->canPipelinesBeFused(running_pipelines_.back(), essential_pipelines_not_started_.front())) {
-      running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
+    DCHECK(!intra_pipeline_scheduling_->getRunningPipelines().empty());
+    if (dag_analyzer_->canPipelinesBeFused(
+        intra_pipeline_scheduling_->getRunningPipelines().back(), essential_pipelines_not_started_.front())) {
+    // if (dag_analyzer_->canPipelinesBeFused(running_pipelines_.back(), essential_pipelines_not_started_.front())) {
+      // running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
+      intra_pipeline_scheduling_->signalStartOfPipelines({essential_pipelines_not_started_.front()});
       essential_pipelines_not_started_.pop();
       return true;
     }
@@ -73,7 +85,8 @@ void PipelineScheduling::lookAheadForWork() {
       std::size_t next_pipeline_id = essential_pipelines_not_started_.front();
       essential_pipelines_not_started_.pop();
       if (isPipelineSchedulable(next_pipeline_id)) {
-        running_pipelines_.emplace_back(next_pipeline_id);
+        // running_pipelines_.emplace_back(next_pipeline_id);
+        intra_pipeline_scheduling_->signalStartOfPipelines({next_pipeline_id});
         break;
       } else {
         non_schedulable_pipelines.push(next_pipeline_id);
@@ -89,23 +102,7 @@ void PipelineScheduling::lookAheadForWork() {
 }
 
 int PipelineScheduling::getNextOperatorHelper() const {
-  for (auto running_pipeline_iter = running_pipelines_.rbegin();
-       running_pipeline_iter != running_pipelines_.rend();
-       ++running_pipeline_iter) {
-    const std::size_t active_pipeline_id = *running_pipeline_iter;
-  // for (std::size_t active_pipeline_id : running_pipelines_) {
-    auto all_operators_in_active_pipeline = dag_analyzer_->getAllOperatorsInPipeline(active_pipeline_id);
-    for (auto it = all_operators_in_active_pipeline.rbegin();
-         it != all_operators_in_active_pipeline.rend();
-         ++it) {
-      const std::size_t curr_operator_id = *it;
-      if (!query_exec_state_.hasExecutionFinished(curr_operator_id)
-          && container_->getNumTotalWorkOrders(curr_operator_id) > 0) {
-        return curr_operator_id;
-      }
-    }
-  }
-  return -1;
+  return intra_pipeline_scheduling_->getNextOperator();
 }
 
 int PipelineScheduling::getNextOperator() {
@@ -123,13 +120,15 @@ void PipelineScheduling::informCompletionOfOperator(std::size_t operator_index) 
   const std::size_t pipeline_for_operator = dag_analyzer_->getPipelineIDForOperator(operator_index);
   if (isPipelineExecutionOver(pipeline_for_operator)) {
     // Remove the finished pipeline from the list of running pipelines.
-    auto it = std::find(running_pipelines_.begin(), running_pipelines_.end(), pipeline_for_operator);
-    running_pipelines_.erase(it);
+    /*auto it = std::find(running_pipelines_.begin(), running_pipelines_.end(), pipeline_for_operator);
+    running_pipelines_.erase(it);*/
+    intra_pipeline_scheduling_->signalCompletionOfPipeline(pipeline_for_operator);
     if (dag_analyzer_->isPipelineEssential(pipeline_for_operator)) {
       // Move all the non-essential successors of this pipeline to running pipelines.
-      running_pipelines_.insert(running_pipelines_.end(),
+      /*running_pipelines_.insert(running_pipelines_.end(),
                                 non_essential_successors_[pipeline_for_operator].begin(),
-                                non_essential_successors_[pipeline_for_operator].end());
+                                non_essential_successors_[pipeline_for_operator].end());*/
+      intra_pipeline_scheduling_->signalStartOfPipelines(non_essential_successors_[pipeline_for_operator]);
       // In addition, move the next essential pipeline to running list too.
       moveNextEssentialPipelineToRunning();
     }

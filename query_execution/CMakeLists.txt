@@ -23,6 +23,8 @@ QS_PROTOBUF_GENERATE_CPP(queryexecution_QueryExecutionMessages_proto_srcs
 
 set_gflags_lib_name ()
 
+add_subdirectory(intra_pipeline_scheduling)
+
 # Declare micro-libs:
 add_library(quickstep_queryexecution_AdmitRequestMessage ../empty_src.cpp AdmitRequestMessage.hpp)
 if (ENABLE_DISTRIBUTED)
@@ -164,6 +166,10 @@ target_link_libraries(quickstep_queryexecution_Pipeline
 target_link_libraries(quickstep_queryexecution_PipelineScheduling
                       glog
                       quickstep_queryexecution_DAGAnalyzer
+                      quickstep_queryexecution_intrapipelinescheduling_FIFO
+                      quickstep_queryexecution_intrapipelinescheduling_IntraPipelineScheduling
+                      quickstep_queryexecution_intrapipelinescheduling_LIFO
+                      quickstep_queryexecution_intrapipelinescheduling_Random
                       quickstep_queryexecution_IntraQuerySchedulingStrategy
                       quickstep_queryexecution_QueryExecutionState
                       quickstep_queryexecution_WorkOrdersContainer
@@ -427,6 +433,7 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_ExecutionStats
                       quickstep_queryexecution_ForemanBase
                       quickstep_queryexecution_ForemanSingleNode
+                      quickstep_queryexecution_intrapipelinescheduling
                       quickstep_queryexecution_IntraQuerySchedulingStrategy
                       quickstep_queryexecution_Pipeline
                       quickstep_queryexecution_PipelineScheduling
@@ -444,13 +451,13 @@ target_link_libraries(quickstep_queryexecution
                       quickstep_queryexecution_RandomOperatorStrategy
                       quickstep_queryexecution_TopologicalSortStaticOrderStrategy
                       quickstep_queryexecution_WeightedRandomWorkOrderStrategy
-                      quickstep_queryexecution_WorkOrderProtosContainer
-                      quickstep_queryexecution_WorkOrdersContainer
                       quickstep_queryexecution_Worker
                       quickstep_queryexecution_WorkerDirectory
                       quickstep_queryexecution_WorkerMessage
-                      quickstep_queryexecution_WorkOrderSelectionPolicy
-                      quickstep_queryexecution_WorkerSelectionPolicy)
+                      quickstep_queryexecution_WorkerSelectionPolicy
+                      quickstep_queryexecution_WorkOrderProtosContainer
+                      quickstep_queryexecution_WorkOrdersContainer
+                      quickstep_queryexecution_WorkOrderSelectionPolicy)
 if (ENABLE_DISTRIBUTED)
   target_link_libraries(quickstep_queryexecution
                         quickstep_queryexecution_BlockLocator

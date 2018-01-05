@@ -24,6 +24,7 @@
 #include <queue>
 #include <vector>
 
+#include "query_execution/intra_pipeline_scheduling/IntraPipelineScheduling.hpp"
 #include "query_execution/IntraQuerySchedulingStrategy.hpp"
 #include "relational_operators/RelationalOperator.hpp"
 #include "utility/Macros.hpp"
@@ -77,11 +78,13 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
 
   std::queue<std::size_t> essential_pipelines_not_started_;
 
-  std::vector<std::size_t> running_pipelines_;
+  // std::vector<std::size_t> running_pipelines_;
 
   // Key = essential pipeline ID
   // Value = sequence of non-essential pipelines that follow the essential pipeline.
   std::unordered_map<std::size_t, std::vector<std::size_t>> non_essential_successors_;
+
+  std::unique_ptr<quickstep::intra_pipeline::IntraPipelineScheduling> intra_pipeline_scheduling_;
 
   DISALLOW_COPY_AND_ASSIGN(PipelineScheduling);
 };
