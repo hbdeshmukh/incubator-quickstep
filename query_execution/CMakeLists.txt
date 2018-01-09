@@ -174,7 +174,8 @@ target_link_libraries(quickstep_queryexecution_PipelineScheduling
                       quickstep_queryexecution_QueryExecutionState
                       quickstep_queryexecution_WorkOrdersContainer
                       quickstep_relationaloperators_RelationalOperator
-                      quickstep_utility_Macros)
+                      quickstep_utility_Macros
+                      ${GFLAGS_LIB_NAME})
 target_link_libraries(quickstep_queryexecution_PolicyEnforcerBase
                       glog
                       quickstep_catalog_CatalogDatabase

@@ -51,7 +51,7 @@ class Random : public IntraPipelineScheduling {
                                                       mt_(std::random_device()()) {}
 
   int getNextOperator() override {
-    if (current_operators_.empty()) {
+    /*if (current_operators_.empty()) {
       return -1;
     } else if (current_operators_.size() == 1u) {
       return current_operators_.front();
@@ -70,6 +70,25 @@ class Random : public IntraPipelineScheduling {
         std::uniform_int_distribution<std::size_t> dist(0, eligible_operators.size() - 1);
         return static_cast<int>(eligible_operators[dist(mt_)]);
       }
+    }*/
+    std::vector<std::size_t> operators_with_pending_work;
+    std::vector<std::size_t> pending_work_count;
+    for (std::size_t node_id : current_operators_) {
+      if (!execution_state_.hasExecutionFinished(node_id) &&
+          workorders_container_->getNumTotalWorkOrders(node_id) > 0) {
+        operators_with_pending_work.emplace_back(node_id);
+        pending_work_count.emplace_back(workorders_container_->getNumTotalWorkOrders(node_id));
+      }
+    }
+    if (operators_with_pending_work.size() == 1) {
+      // Short circuit to avoid the random number generation cost.
+      return operators_with_pending_work[0];
+    } else if (operators_with_pending_work.size() > 1) {
+      std::discrete_distribution<std::size_t> dist(
+          pending_work_count.begin(), pending_work_count.end());
+      return static_cast<int>(operators_with_pending_work[dist(mt_)]);
+    } else {
+      return -1;
     }
   }
 

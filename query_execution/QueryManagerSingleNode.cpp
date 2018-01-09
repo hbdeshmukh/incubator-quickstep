@@ -47,9 +47,7 @@
 
 #include "tmb/id_typedefs.h"
 
-
 namespace quickstep {
-
 
 class WorkOrder;
 

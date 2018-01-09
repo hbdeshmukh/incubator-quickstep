@@ -31,11 +31,17 @@
 #include "query_execution/intra_pipeline_scheduling/LIFO.hpp"
 #include "query_execution/intra_pipeline_scheduling/Random.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 namespace quickstep {
 
 namespace IP = ::quickstep::intra_pipeline;
+
+DEFINE_int32(intra_pipeline_scheduling_strategy,
+              0,
+              "The scheduling strategy to be used within a pipeline."
+              "One of \"LIFO, \"FIFO\", and \"random\"");
 
 PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
                                        WorkOrdersContainer *workorders_container,
@@ -50,15 +56,28 @@ PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
   for (auto pid : dag_analyzer_->getEssentialPipelineSequence()) {
     essential_pipelines_not_started_.push(pid);
   }
-  intra_pipeline_scheduling_.reset(new IP::FIFO(query_exec_state, dag_analyzer, workorders_container));
+  switch (FLAGS_intra_pipeline_scheduling_strategy) {
+    case 0: {
+      intra_pipeline_scheduling_.reset(new IP::LIFO(query_exec_state, dag_analyzer, workorders_container));
+      break;
+    } case 1: {
+      intra_pipeline_scheduling_.reset(new IP::FIFO(query_exec_state, dag_analyzer, workorders_container));
+      break;
+    } case 2: {
+      intra_pipeline_scheduling_.reset(new IP::Random(query_exec_state, dag_analyzer, workorders_container));
+      break;
+    } default: {
+      LOG(ERROR) << "Invalid intra pipeline scheduling strategy used. Valid choices are 0 (LIFO), 1 (FIFO), and 2 (Random)";
+    }
+  }
   moveNextEssentialPipelineToRunning();
 }
 
 void PipelineScheduling::moveNextEssentialPipelineToRunning() {
   if (!essential_pipelines_not_started_.empty()) {
-    // running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
     intra_pipeline_scheduling_->signalStartOfPipelines({essential_pipelines_not_started_.front()});
     essential_pipelines_not_started_.pop();
+    moveNextFusableEssentialPipelineToRunning();
   }
 }
 
@@ -66,10 +85,10 @@ bool PipelineScheduling::moveNextFusableEssentialPipelineToRunning() {
   if (!essential_pipelines_not_started_.empty()) {
     DCHECK(!intra_pipeline_scheduling_->getRunningPipelines().empty());
     if (dag_analyzer_->canPipelinesBeFused(
-        intra_pipeline_scheduling_->getRunningPipelines().back(), essential_pipelines_not_started_.front())) {
-    // if (dag_analyzer_->canPipelinesBeFused(running_pipelines_.back(), essential_pipelines_not_started_.front())) {
-      // running_pipelines_.emplace_back(essential_pipelines_not_started_.front());
-      intra_pipeline_scheduling_->signalStartOfPipelines({essential_pipelines_not_started_.front()});
+        intra_pipeline_scheduling_->getRunningPipelines().back(),
+        essential_pipelines_not_started_.front())) {
+      intra_pipeline_scheduling_->signalStartOfPipelines(
+          {essential_pipelines_not_started_.front()});
       essential_pipelines_not_started_.pop();
       return true;
     }

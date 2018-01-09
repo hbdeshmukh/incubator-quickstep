@@ -140,6 +140,12 @@ enum SchedulingStrategy {
   kPipeline
 };
 
+enum IntraPipelineSchedulingStrategy {
+  kLIFO = 0,
+  kFIFO,
+  kRandom
+};
+
 /** @} */
 
 }  // namespace quickstep
