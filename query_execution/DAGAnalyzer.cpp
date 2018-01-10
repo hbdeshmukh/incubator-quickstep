@@ -354,8 +354,6 @@ void DAGAnalyzer::generateEssentialPipelineSequence(
      PID-c
     */
     sequence->push_back(topmost_pipeline_id);
-  } else {
-    std::cout << "Already seen pipeline: " << topmost_pipeline_id << " not inserting\n";
   }
 }
 
