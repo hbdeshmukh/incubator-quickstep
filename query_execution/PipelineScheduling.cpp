@@ -126,12 +126,12 @@ int PipelineScheduling::getNextOperatorHelper() const {
 
 int PipelineScheduling::getNextOperator() {
   int next_operator_id = getNextOperatorHelper();
-  if (next_operator_id == -1) {
+  /*if (next_operator_id == -1) {
     // If there's another essential and fusable pipeline that's not running,
     // add it to the list of running pipelines.
     lookAheadForWork();
     next_operator_id = getNextOperatorHelper();
-  }
+  }*/
   return next_operator_id;
 }
 

@@ -105,8 +105,16 @@ class DAGAnalyzer {
 
   void visualizePipelines();
 
+  /**
+   * @brief Generate the sequence of essential pipelines.
+   * @note This function is called recursively. The first call has to be made from the topmost pipeline
+   * in the query plan.
+   * @param topmost_pipeline_id The ID of the topmost pipeline.
+   * @param sequence The resulting sequence. The front of this vector is the pipeline executed earliest, and the
+   * back of the vector is the pipeline executed the latest.
+   */
   void generateEssentialPipelineSequence(const size_t topmost_pipeline_id,
-                                         std::queue<std::size_t> *sequence) const;
+                                         std::vector<size_t> *sequence) const;
 
   std::vector<std::size_t> generateFinalPipelineSequence();
 

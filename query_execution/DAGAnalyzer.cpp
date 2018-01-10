@@ -315,7 +315,7 @@ bool DAGAnalyzer::canPipelinesBeFused(const std::size_t src_pipeline_id,
 }
 
 void DAGAnalyzer::generateEssentialPipelineSequence(
-    const std::size_t topmost_pipeline_id, std::queue<std::size_t> *sequence) const {
+    const std::size_t topmost_pipeline_id, std::vector<size_t> *sequence) const {
   std::vector<PipelineConnection> children(pipelines_[topmost_pipeline_id]->getAllIncomingPipelines());
   if (children.size() == 1u) {
     generateEssentialPipelineSequence(children.front().getConnectedPipelineID(), sequence);
@@ -343,7 +343,20 @@ void DAGAnalyzer::generateEssentialPipelineSequence(
       generateEssentialPipelineSequence(child.getConnectedPipelineID(), sequence);
     }
   }
-  sequence->push(topmost_pipeline_id);
+  if (std::find(sequence->begin(), sequence->end(), topmost_pipeline_id) == sequence->end()) {
+    /* We need this check for some patterns like below.
+      Two pipelines have a sibling relationship (b and c), but they also have
+     parent-child relationship.
+       PID-a
+        /  \
+       /   PID-b
+      /   /
+     PID-c
+    */
+    sequence->push_back(topmost_pipeline_id);
+  } else {
+    std::cout << "Already seen pipeline: " << topmost_pipeline_id << " not inserting\n";
+  }
 }
 
 std::vector<std::size_t> DAGAnalyzer::generateEssentialPipelines() const {
@@ -391,21 +404,18 @@ std::vector<std::size_t> DAGAnalyzer::generateFinalPipelineSequence() {
   }
   std::vector<bool> visited(pipelines_.size(), false);
   std::vector<std::size_t> essential_pipelines(generateEssentialPipelines());
-  std::queue<std::size_t> essential_pipelines_queue;
+  std::vector<std::size_t> essential_pipelines_list;
   DCHECK(!essential_pipelines.empty());
-  generateEssentialPipelineSequence(essential_pipelines.front(), &essential_pipelines_queue);
-  std::queue<std::size_t> essential_pipelines_queue_copy = essential_pipelines_queue;
+  generateEssentialPipelineSequence(essential_pipelines.front(), &essential_pipelines_list);
+  std::vector<std::size_t> essential_pipelines_list_copy = essential_pipelines_list;
   // Mark the essential pipelines as "visited".
-  while (!essential_pipelines_queue_copy.empty()) {
-    const std::size_t curr_pid = essential_pipelines_queue_copy.front();
-    essential_pipelines_queue_copy.pop();
-    essential_pipeline_sequence_.emplace_back(curr_pid);
-    visited[curr_pid] = true;
+  essential_pipeline_sequence_.insert(
+      essential_pipeline_sequence_.end(), essential_pipelines_list.begin(), essential_pipelines_list.end());
+  for (std::size_t p : essential_pipelines_list) {
+    visited[p] = true;
   }
   std::vector<std::size_t> final_pipeline_sequence;
-  while (!essential_pipelines_queue.empty()) {
-    const std::size_t curr_pid = essential_pipelines_queue.front();
-    essential_pipelines_queue.pop();
+  for (std::size_t curr_pid : essential_pipelines_list) {
     std::vector<std::size_t> dependent_pipelines;
     dependent_pipelines.emplace_back(curr_pid);
     populateDependents(curr_pid, &dependent_pipelines, &incoming_pipelines_count, &visited);
