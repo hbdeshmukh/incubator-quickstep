@@ -64,11 +64,7 @@ class PipelineScheduling : public IntraQuerySchedulingStrategy {
    */
   bool moveNextFusableEssentialPipelineToRunning();
 
-  void lookAheadForWork();
-
   bool isPipelineSchedulable(std::size_t pipeline_id) const;
-
-  int getNextOperatorHelper() const;
 
   const DAGAnalyzer *dag_analyzer_;
 

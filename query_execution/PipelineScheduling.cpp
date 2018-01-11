@@ -43,6 +43,8 @@ DEFINE_int32(intra_pipeline_scheduling_strategy,
               "The scheduling strategy to be used within a pipeline."
               "One of \"LIFO, \"FIFO\", and \"random\"");
 
+DEFINE_bool(fuse_pipelines, true, "Whether two pipelines should be fused");
+
 PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
                                        WorkOrdersContainer *workorders_container,
                                        const QueryExecutionState &query_exec_state)
@@ -67,7 +69,8 @@ PipelineScheduling::PipelineScheduling(const DAGAnalyzer *dag_analyzer,
       intra_pipeline_scheduling_.reset(new IP::Random(query_exec_state, dag_analyzer, workorders_container));
       break;
     } default: {
-      LOG(ERROR) << "Invalid intra pipeline scheduling strategy used. Valid choices are 0 (LIFO), 1 (FIFO), and 2 (Random)";
+      LOG(ERROR) << "Invalid intra pipeline scheduling strategy used. "
+          << "Valid choices are 0 (LIFO), 1 (FIFO), and 2 (Random)";
     }
   }
   moveNextEssentialPipelineToRunning();
@@ -77,7 +80,9 @@ void PipelineScheduling::moveNextEssentialPipelineToRunning() {
   if (!essential_pipelines_not_started_.empty()) {
     intra_pipeline_scheduling_->signalStartOfPipelines({essential_pipelines_not_started_.front()});
     essential_pipelines_not_started_.pop();
-    moveNextFusableEssentialPipelineToRunning();
+    if (FLAGS_fuse_pipelines) {
+      moveNextFusableEssentialPipelineToRunning();
+    }
   }
 }
 
@@ -96,57 +101,17 @@ bool PipelineScheduling::moveNextFusableEssentialPipelineToRunning() {
   return false;
 }
 
-void PipelineScheduling::lookAheadForWork() {
-  if (!moveNextFusableEssentialPipelineToRunning()) {
-    // Look ahead in the list of essential pipelines.
-    std::stack<std::size_t> non_schedulable_pipelines;
-    while (!essential_pipelines_not_started_.empty()) {
-      std::size_t next_pipeline_id = essential_pipelines_not_started_.front();
-      essential_pipelines_not_started_.pop();
-      if (isPipelineSchedulable(next_pipeline_id)) {
-        // running_pipelines_.emplace_back(next_pipeline_id);
-        intra_pipeline_scheduling_->signalStartOfPipelines({next_pipeline_id});
-        break;
-      } else {
-        non_schedulable_pipelines.push(next_pipeline_id);
-      }
-    }
-    // Transfer the contents of the stack to the queue again.
-    while (!non_schedulable_pipelines.empty()) {
-      std::size_t next_pipeline = non_schedulable_pipelines.top();
-      non_schedulable_pipelines.pop();
-      essential_pipelines_not_started_.push(next_pipeline);
-    }
-  }
-}
-
-int PipelineScheduling::getNextOperatorHelper() const {
-  return intra_pipeline_scheduling_->getNextOperator();
-}
-
 int PipelineScheduling::getNextOperator() {
-  int next_operator_id = getNextOperatorHelper();
-  /*if (next_operator_id == -1) {
-    // If there's another essential and fusable pipeline that's not running,
-    // add it to the list of running pipelines.
-    lookAheadForWork();
-    next_operator_id = getNextOperatorHelper();
-  }*/
-  return next_operator_id;
+  return intra_pipeline_scheduling_->getNextOperator();
 }
 
 void PipelineScheduling::informCompletionOfOperator(std::size_t operator_index) {
   const std::size_t pipeline_for_operator = dag_analyzer_->getPipelineIDForOperator(operator_index);
   if (isPipelineExecutionOver(pipeline_for_operator)) {
     // Remove the finished pipeline from the list of running pipelines.
-    /*auto it = std::find(running_pipelines_.begin(), running_pipelines_.end(), pipeline_for_operator);
-    running_pipelines_.erase(it);*/
     intra_pipeline_scheduling_->signalCompletionOfPipeline(pipeline_for_operator);
     if (dag_analyzer_->isPipelineEssential(pipeline_for_operator)) {
       // Move all the non-essential successors of this pipeline to running pipelines.
-      /*running_pipelines_.insert(running_pipelines_.end(),
-                                non_essential_successors_[pipeline_for_operator].begin(),
-                                non_essential_successors_[pipeline_for_operator].end());*/
       intra_pipeline_scheduling_->signalStartOfPipelines(non_essential_successors_[pipeline_for_operator]);
       // In addition, move the next essential pipeline to running list too.
       moveNextEssentialPipelineToRunning();
