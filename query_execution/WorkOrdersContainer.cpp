@@ -27,11 +27,15 @@
 
 #include "relational_operators/WorkOrder.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 using std::unique_ptr;
 
 namespace quickstep {
+
+DEFINE_int32(intra_pipeline_scheduling_strategy,0,
+             "The scheduling strategy to be used within a pipeline.One of \"LIFO, \"FIFO\", and \"random\"");
 
 WorkOrdersContainer::~WorkOrdersContainer() {
   // For each operator ..

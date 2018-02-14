@@ -400,10 +400,12 @@ target_link_libraries(quickstep_queryexecution_WorkOrderProtosContainer
                       quickstep_utility_Macros)
 target_link_libraries(quickstep_queryexecution_WorkOrdersContainer
                       glog
+                      quickstep_queryexecution_QueryExecutionTypedefs
                       quickstep_queryexecution_WorkOrderSelectionPolicy
                       quickstep_relationaloperators_WorkOrder
                       quickstep_utility_Macros
-                      quickstep_utility_PtrVector)
+                      quickstep_utility_PtrVector
+                      ${GFLAGS_LIB_NAME})
 target_link_libraries(quickstep_queryexecution_Worker
                       glog
                       quickstep_queryexecution_QueryExecutionMessages_proto

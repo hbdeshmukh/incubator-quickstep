@@ -24,16 +24,21 @@
 #include <list>
 #include <memory>
 #include <queue>
+#include <random>
 #include <vector>
 
+#include "query_execution/QueryExecutionTypedefs.hpp"
 #include "query_execution/WorkOrderSelectionPolicy.hpp"
 #include "relational_operators/WorkOrder.hpp"
 #include "utility/Macros.hpp"
 #include "utility/PtrVector.hpp"
 
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 
 namespace quickstep {
+
+DECLARE_int32(intra_pipeline_scheduling_strategy);
 
 /** \addtogroup QueryExecution
  *  @{
@@ -447,6 +452,49 @@ class WorkOrdersContainer {
     DISALLOW_COPY_AND_ASSIGN(InternalStackContainer);
   };
 
+  class InternalRandomVectorContainer : public InternalContainer {
+   public:
+    InternalRandomVectorContainer() : mt_(std::random_device()()) {}
+
+    void addWorkOrder(WorkOrder *workorder) override {
+      workorders_.emplace_back(std::unique_ptr<WorkOrder>(workorder));
+    }
+
+    WorkOrder* getWorkOrder() override {
+      if (workorders_.empty()) {
+        return nullptr;
+      } else if (workorders_.size() == 1u) {
+        WorkOrder *work_order = workorders_.front().release();
+        workorders_.pop_back();
+        return work_order;
+      } else {
+
+        std::uniform_int_distribution<std::size_t> dist(0, workorders_.size() - 1);
+        const std::size_t index = dist(mt_);
+        WorkOrder *work_order = workorders_[index].release();
+        // Swap the last element with index.
+        WorkOrder *last_work_order = workorders_.back().release();
+        workorders_[index] = std::unique_ptr<WorkOrder>(last_work_order);
+        workorders_.pop_back();
+        return work_order;
+      }
+    }
+
+    bool hasWorkOrder() const override {
+      return !workorders_.empty();
+    }
+
+    size_t getNumWorkOrders() const override {
+      return workorders_.size();
+    }
+
+   private:
+    std::vector<std::unique_ptr<WorkOrder>> workorders_;
+    std::mt19937_64 mt_;
+
+    DISALLOW_COPY_AND_ASSIGN(InternalRandomVectorContainer);
+  };
+
   /**
    * @brief An internal list-based container structure to hold the WorkOrders.
    *
@@ -513,7 +561,24 @@ class WorkOrdersContainer {
    public:
     explicit OperatorWorkOrdersContainer(const std::size_t num_numa_nodes)
         : num_numa_nodes_(num_numa_nodes) {
-      numa_agnostic_workorders_.reset(new InternalStackContainer());
+      switch (FLAGS_intra_pipeline_scheduling_strategy) {
+        case kLIFO: {
+          numa_agnostic_workorders_.reset(new InternalStackContainer());
+          break;
+        }
+        case kFIFO: {
+          numa_agnostic_workorders_.reset(new InternalQueueContainer());
+          break;
+        }
+        case kRandom: {
+          numa_agnostic_workorders_.reset(new InternalRandomVectorContainer());
+          break;
+        }
+        default: {
+          LOG(ERROR) << "Invalid choice for intra_pipeline_scheduling_strategy. Valid choices are: "
+                     << kLIFO << ", " << kFIFO << " and " << kRandom;
+        }
+      }
       for (std::size_t numa_node = 0; numa_node < num_numa_nodes; ++numa_node) {
         single_numa_node_workorders_.push_back(new InternalQueueContainer());
       }

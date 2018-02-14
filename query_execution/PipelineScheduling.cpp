@@ -38,10 +38,7 @@ namespace quickstep {
 
 namespace IP = ::quickstep::intra_pipeline;
 
-DEFINE_int32(intra_pipeline_scheduling_strategy,
-              0,
-              "The scheduling strategy to be used within a pipeline."
-              "One of \"LIFO, \"FIFO\", and \"random\"");
+DECLARE_int32(intra_pipeline_scheduling_strategy);
 
 DEFINE_bool(fuse_pipelines, true, "Whether two pipelines should be fused");
 
