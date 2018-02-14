@@ -74,7 +74,7 @@ void WorkOrdersContainer::OperatorWorkOrdersContainer::addWorkOrder(
       multiple_numa_nodes_workorders_.addWorkOrder(workorder);
     }
   } else {
-    numa_agnostic_workorders_.addWorkOrder(workorder);
+    numa_agnostic_workorders_->addWorkOrder(workorder);
   }
 }
 
@@ -115,7 +115,7 @@ bool WorkOrdersContainer::InternalListContainer::hasWorkOrderForNUMANode(
 WorkOrder* WorkOrdersContainer::OperatorWorkOrdersContainer::getWorkOrder(
     const bool prefer_single_NUMA_node) {
   // This function tries to get any available WorkOrder.
-  WorkOrder *workorder = numa_agnostic_workorders_.getWorkOrder();
+  WorkOrder *workorder = numa_agnostic_workorders_->getWorkOrder();
   if (workorder == nullptr) {
     if (prefer_single_NUMA_node) {
       workorder = getSingleNUMANodeWorkOrderHelper();

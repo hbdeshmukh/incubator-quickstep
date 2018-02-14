@@ -360,19 +360,34 @@ class WorkOrdersContainer {
   }
 
  private:
+  class InternalContainer {
+   public:
+    InternalContainer() {}
+
+    virtual ~InternalContainer() {}
+
+    virtual void addWorkOrder(WorkOrder *workorder) = 0;
+
+    virtual WorkOrder* getWorkOrder() = 0;
+
+    virtual bool hasWorkOrder() const = 0;
+
+    virtual std::size_t getNumWorkOrders() const = 0;
+  };
+
   /**
    * @brief An internal queue-based container structure to hold the WorkOrders.
    **/
-  class InternalQueueContainer {
+  class InternalQueueContainer : public InternalContainer {
    public:
     InternalQueueContainer() {
     }
 
-    inline void addWorkOrder(WorkOrder *workorder) {
+    void addWorkOrder(WorkOrder *workorder) override {
       workorders_.emplace(std::unique_ptr<WorkOrder>(workorder));
     }
 
-    inline WorkOrder* getWorkOrder() {
+    WorkOrder* getWorkOrder() override {
       if (workorders_.empty()) {
         return nullptr;
       }
@@ -382,11 +397,11 @@ class WorkOrdersContainer {
       return work_order;
     }
 
-    inline bool hasWorkOrder() const {
+    bool hasWorkOrder() const override {
       return !workorders_.empty();
     }
 
-    inline std::size_t getNumWorkOrders() const {
+    std::size_t getNumWorkOrders() const override {
       return workorders_.size();
     }
 
@@ -394,6 +409,42 @@ class WorkOrdersContainer {
     std::queue<std::unique_ptr<WorkOrder>> workorders_;
 
     DISALLOW_COPY_AND_ASSIGN(InternalQueueContainer);
+  };
+
+  /**
+   * @brief An internal queue-based container structure to hold the WorkOrders.
+   **/
+  class InternalStackContainer : public InternalContainer {
+   public:
+    InternalStackContainer() {
+    }
+
+    void addWorkOrder(WorkOrder *workorder) override {
+      workorders_.emplace(std::unique_ptr<WorkOrder>(workorder));
+    }
+
+    WorkOrder* getWorkOrder() override {
+      if (workorders_.empty()) {
+        return nullptr;
+      }
+
+      WorkOrder *work_order = workorders_.top().release();
+      workorders_.pop();
+      return work_order;
+    }
+
+    bool hasWorkOrder() const override {
+      return !workorders_.empty();
+    }
+
+    std::size_t getNumWorkOrders() const override {
+      return workorders_.size();
+    }
+
+   private:
+    std::stack<std::unique_ptr<WorkOrder>> workorders_;
+
+    DISALLOW_COPY_AND_ASSIGN(InternalStackContainer);
   };
 
   /**
@@ -462,6 +513,7 @@ class WorkOrdersContainer {
    public:
     explicit OperatorWorkOrdersContainer(const std::size_t num_numa_nodes)
         : num_numa_nodes_(num_numa_nodes) {
+      numa_agnostic_workorders_.reset(new InternalStackContainer());
       for (std::size_t numa_node = 0; numa_node < num_numa_nodes; ++numa_node) {
         single_numa_node_workorders_.push_back(new InternalQueueContainer());
       }
@@ -478,7 +530,7 @@ class WorkOrdersContainer {
     }
 
     bool hasWorkOrder() const {
-      if (!(numa_agnostic_workorders_.hasWorkOrder() ||
+      if (!(numa_agnostic_workorders_->hasWorkOrder() ||
             multiple_numa_nodes_workorders_.hasWorkOrder())) {
         for (std::size_t i = 0; i < num_numa_nodes_; ++i) {
           if (hasWorkOrderForNUMANode(i)) {
@@ -500,7 +552,7 @@ class WorkOrdersContainer {
     }
 
     inline std::size_t getNumWorkOrders() const {
-      std::size_t num_workorders = numa_agnostic_workorders_.getNumWorkOrders();
+      std::size_t num_workorders = numa_agnostic_workorders_->getNumWorkOrders();
       // for each NUMA node involved ..
       for (PtrVector<InternalQueueContainer>::const_iterator it =
                single_numa_node_workorders_.begin();
@@ -533,7 +585,7 @@ class WorkOrdersContainer {
     const std::size_t num_numa_nodes_;
 
     // A container to store NUMA agnostic workorders.
-    InternalQueueContainer numa_agnostic_workorders_;
+    std::unique_ptr<InternalContainer> numa_agnostic_workorders_;
 
     // A vector of containers to store workorders which prefer exactly one NUMA
     // node for execution.
