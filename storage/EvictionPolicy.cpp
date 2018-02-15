@@ -203,6 +203,11 @@ class LRUKEvictionPolicyImpl : public EvictionPolicy {
      */
     mutable SpinSharedMutex<false> time_mutex_;
 
+    /**
+     * A mutex protecting ref_count_;
+     */
+    mutable SpinSharedMutex<false> ref_count_mutex_;
+
     BlockInfo()
         : ref_count_(0), in_memory_(false) {
       ref_list_.fill(time_point<high_resolution_clock>::min());
@@ -427,8 +432,9 @@ void LRUKEvictionPolicyImpl<K>::blockReferenced(const block_id block) {
       // Need to protect the access to "ref_count", so grab the mutex.
       // Note we need to grab this outside the loop as "blockReferencedHelper"
       // changes the "ref_count."
-      SpinMutexLock nonreferenced_blocks_lock(nonreferenced_blocks_mutex_);
+      SpinSharedMutexExclusiveLock<false> lock(it->second.ref_count_mutex_);
       if (it->second.blockReferencedHelper(correlated_reference_period_)) {
+        SpinMutexLock nonreferenced_blocks_lock(nonreferenced_blocks_mutex_);
         nonreferenced_blocks_.erase(block);
       }
     }
@@ -439,8 +445,9 @@ void LRUKEvictionPolicyImpl<K>::blockReferenced(const block_id block) {
     // As above, need to protect access to ref_count, so grab the mutex.
     // Note we need to grab this outside the loop as "blockReferencedHelper"
     // changes the "ref_count."
-    SpinMutexLock nonreferenced_blocks_lock(nonreferenced_blocks_mutex_);
+    SpinSharedMutexExclusiveLock<false> lock(blocks_[block].ref_count_mutex_);
     if (blocks_[block].blockReferencedHelper(correlated_reference_period_)) {
+      SpinMutexLock nonreferenced_blocks_lock(nonreferenced_blocks_mutex_);
       nonreferenced_blocks_.erase(block);
     }
   }
@@ -454,8 +461,9 @@ void LRUKEvictionPolicyImpl<K>::blockUnreferenced(const block_id block) {
   BlockInfo& blockinfo = blocks_[block];
 
   // Need to protect the access to "ref_count", so grab the mutex.
-  SpinMutexLock nonreferenced_blocks_lock(nonreferenced_blocks_mutex_);
+  SpinSharedMutexExclusiveLock<false> lock(blockinfo.ref_count_mutex_);
   if (--blockinfo.ref_count_ == 0) {
+    SpinMutexLock nonreferenced_blocks_lock(nonreferenced_blocks_mutex_);
     nonreferenced_blocks_.insert(block);
   }
 }
