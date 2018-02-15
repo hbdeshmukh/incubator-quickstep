@@ -78,7 +78,10 @@ void PipelineScheduling::moveNextEssentialPipelineToRunning() {
     intra_pipeline_scheduling_->signalStartOfPipelines({essential_pipelines_not_started_.front()});
     essential_pipelines_not_started_.pop();
     if (FLAGS_fuse_pipelines) {
-      moveNextFusableEssentialPipelineToRunning();
+      bool can_fuse = true;
+      while (can_fuse) {
+        can_fuse = moveNextFusableEssentialPipelineToRunning();
+      }
     }
   }
 }
