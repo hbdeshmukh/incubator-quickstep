@@ -111,7 +111,15 @@ void PipelineScheduling::informCompletionOfOperator(std::size_t operator_index) 
       // Move all the non-essential successors of this pipeline to running pipelines.
       intra_pipeline_scheduling_->signalStartOfPipelines(non_essential_successors_[pipeline_for_operator]);
       // In addition, move the next essential pipeline to running list too.
-      moveNextEssentialPipelineToRunning();
+      const std::vector<std::size_t> &running_pipelines = intra_pipeline_scheduling_->getRunningPipelines();
+      const std::size_t num_essential_running_pipelines = std::count_if(running_pipelines.begin(),
+                                                                        running_pipelines.end(),
+                                                                        [this](std::size_t pid) {
+                                                                          return dag_analyzer_->isPipelineEssential(pid);
+                                                                        });
+      if (num_essential_running_pipelines == 0) {
+        moveNextEssentialPipelineToRunning();
+      }
     }
   }
 }
