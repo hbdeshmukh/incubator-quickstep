@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "utility/DAG.hpp"
+#include "utility/StringUtil.hpp"
 
 #include "gflags/gflags.h"
 #include "glog/logging.h"
@@ -41,6 +42,10 @@ DEFINE_bool(show_all_nodes,
             true,
             "Show both essential and non-essential types of nodes in the "
             "visualization of the pipelines");
+DEFINE_string(pipeline_sequence, "",
+              "A comma separated sequence of essential pipeline IDs. "
+              "If not specified, an algorithm will be run to determine "
+              "the optimal sequence");
 
 void DAGAnalyzer::findPipelines() {
   // Key = node ID, value = whether the node has been visited or not.
@@ -404,16 +409,27 @@ std::vector<std::size_t> DAGAnalyzer::generateFinalPipelineSequence() {
   std::vector<std::size_t> essential_pipelines(generateEssentialPipelines());
   std::vector<std::size_t> essential_pipelines_list;
   DCHECK(!essential_pipelines.empty());
-  generateEssentialPipelineSequence(essential_pipelines.front(), &essential_pipelines_list);
+  bool pipeline_parsing_successful = false;
+  if (!FLAGS_pipeline_sequence.empty()) {
+    std::vector<int> parsed_pipelines;
+    pipeline_parsing_successful = ParseIntString(FLAGS_pipeline_sequence, ',', &parsed_pipelines);
+    for (int p : parsed_pipelines) {
+      essential_pipelines_list.emplace_back(static_cast<std::size_t>(p));
+    }
+  }
+  if (!pipeline_parsing_successful) {
+    essential_pipelines_list.clear();
+    generateEssentialPipelineSequence(essential_pipelines.front(), &essential_pipelines_list);
+  }
   std::vector<std::size_t> essential_pipelines_list_copy = essential_pipelines_list;
   // Mark the essential pipelines as "visited".
   essential_pipeline_sequence_.insert(
       essential_pipeline_sequence_.end(), essential_pipelines_list.begin(), essential_pipelines_list.end());
-  for (std::size_t p : essential_pipelines_list) {
+  for (int p : essential_pipelines_list) {
     visited[p] = true;
   }
   std::vector<std::size_t> final_pipeline_sequence;
-  for (std::size_t curr_pid : essential_pipelines_list) {
+  for (int curr_pid : essential_pipelines_list) {
     std::vector<std::size_t> dependent_pipelines;
     dependent_pipelines.emplace_back(curr_pid);
     populateDependents(curr_pid, &dependent_pipelines, &incoming_pipelines_count, &visited);

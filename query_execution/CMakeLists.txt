@@ -106,6 +106,7 @@ target_link_libraries(quickstep_queryexecution_DAGAnalyzer
                       quickstep_relationaloperators_RelationalOperator
                       quickstep_utility_DAG
                       quickstep_utility_Macros
+                      quickstep_utility_StringUtil
                       ${GFLAGS_LIB_NAME})
 target_link_libraries(quickstep_queryexecution_ForemanBase
                       glog
