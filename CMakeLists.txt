@@ -589,6 +589,49 @@ if(USE_TCMALLOC)
   endif()
 endif()
 
+#set(PCM_SRCS
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/client_bw.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/cpuasynchcounter.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/cpucounters.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/lspci.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/msr.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/mutex.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pci.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/types.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/utils.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/width_extender.h
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/client_bw.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/cpucounters.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/memoptest.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/msr.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/msrtest.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pci.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-core.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-iio.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-lspci.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-memory.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-msr.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-numa.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-pcie.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-power.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-sensor.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/pcm-tsx.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/readmem.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/realtime.cpp
+#        ${THIRD_PARTY_SOURCE_DIR}/pcm/utils.cpp
+#        )
+
+#ExternalProject_Add(
+#        libPCM
+#        SOURCE_DIR ${THIRD_PARTY_SOURCE_DIR}/pcm
+#        BUILD_COMMAND make lib
+#        BUILD_IN_SOURCE 1
+#)
+#set_property(TARGET libPCM_a PROPERTY IMPORTED_LOCATION ${THIRD_PARTY_SOURCE_DIR}/pcm/libPCM.a)
+#include_directories("${THIRD_PARTY_SOURCE_DIR}/pcm")
+set(LIBS ${LIBPCM} ${THIRD_PARTY_SOURCE_DIR}/pcm/libPCM.a)
+
 # Add Protocol Buffers.
 # First, see if protobufs are already installed on this system (unless
 # USE_LIBCXX is on, in which case we compile ourselves to be safe, in

@@ -37,6 +37,9 @@
 
 #include "glog/logging.h"
 
+#include "pcm/client_bw.h"
+#include "pcm/cpucounters.h"
+
 #include "tmb/address.h"
 #include "tmb/id_typedefs.h"
 #include "tmb/message_bus.h"
@@ -54,6 +57,11 @@ using serialization::WorkOrderCompletionMessage;
 void Worker::run() {
   if (cpu_id_ >= 0) {
     ThreadUtil::BindToCPU(cpu_id_);
+  }
+  PCM *m = PCM::getInstance();
+  PCM::ErrorCode return_result = m->program();
+  if (return_result != PCM::Success) {
+    LOG(ERROR) << "Intel's PCM couldn't start. Error code: " << return_result << "\n";
   }
   ClientIDMap *thread_id_map = ClientIDMap::Instance();
   thread_id_map->addValue(worker_client_id_);
@@ -75,14 +83,14 @@ void Worker::run() {
 #endif  // QUICKSTEP_DISTRIBUTED
       case kWorkOrderMessage: {
         WorkOrderCompletionMessage proto;
-        executeWorkOrderHelper(tagged_message, &proto);
+        executeWorkOrderHelper(tagged_message, &proto, m);
         sendWorkOrderCompleteMessage(
             annotated_msg.sender, proto, kWorkOrderCompleteMessage);
         break;
       }
       case kRebuildWorkOrderMessage: {
         WorkOrderCompletionMessage proto;
-        executeWorkOrderHelper(tagged_message, &proto, true /* is_rebuild */);
+        executeWorkOrderHelper(tagged_message, &proto, m, true /* is_rebuild */);
         sendWorkOrderCompleteMessage(
             annotated_msg.sender, proto, kRebuildWorkOrderCompleteMessage);
         break;
@@ -122,6 +130,7 @@ void Worker::sendWorkOrderCompleteMessage(const tmb::client_id receiver,
 
 void Worker::executeWorkOrderHelper(const TaggedMessage &tagged_message,
                                     WorkOrderCompletionMessage *proto,
+                                    PCM *m,
                                     const bool is_rebuild_work_order) {
   std::chrono::time_point<std::chrono::steady_clock> start, end;
   WorkerMessage worker_message(
@@ -133,9 +142,13 @@ void Worker::executeWorkOrderHelper(const TaggedMessage &tagged_message,
   const partition_id part_id = work_order->getPartitionId();
 
   // Start measuring the execution time.
+  SystemCounterState before_sstate = getSystemCounterState();
   start = std::chrono::steady_clock::now();
   work_order->execute();
   end = std::chrono::steady_clock::now();
+  SystemCounterState after_sstate = getSystemCounterState();
+  LOG(INFO) << "Worker," << worker_thread_index_ <<
+    ",QID," << query_id_for_workorder << ",L3Hit," << getL3CacheHitRatio(before_sstate, after_sstate);
   work_order.reset();
 
   // Convert the measured timestamps to epoch times in microseconds.

@@ -31,6 +31,8 @@
 #include "tmb/id_typedefs.h"
 #include "tmb/message_bus.h"
 
+class PCM;
+
 namespace tmb { class TaggedMessge; }
 
 namespace quickstep {
@@ -114,10 +116,12 @@ class Worker : public Thread {
    *
    * @param tagged_message The TaggedMessage which consists of the WorkOrder.
    * @param proto The proto message to be sent.
+   * @param m A PCM object for measuring counters.
    * @param is_rebuild_work_order Whether it is used for a RebuildWorkOrder.
    **/
   void executeWorkOrderHelper(const TaggedMessage &tagged_message,
                               serialization::WorkOrderCompletionMessage *proto,
+                              PCM *m,
                               const bool is_rebuild_work_order = false);
 
   /**
