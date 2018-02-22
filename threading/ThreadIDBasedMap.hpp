@@ -21,6 +21,7 @@
 #define QUICKSTEP_THREADING_THREAD_ID_BASED_MAP_HPP_
 
 #include <unordered_map>
+#include <vector>
 
 #include "threading/ThreadingConfig.h"
 
@@ -120,6 +121,20 @@ class ThreadIDBasedMap {
       DCHECK(it != map_.end());
       return it->second;
     }
+  }
+
+
+  /**
+   * @brief Get all the values.
+   * @return A vector of all the values in the map when the function is called.
+   */
+  std::vector<V> getAllValues() const {
+    SpinSharedMutexSharedLock<false> lock(map_mutex_);
+    std::vector<V> values;
+    for (auto kv_pair : map_) {
+      values.emplace_back(kv_pair.second);
+    }
+    return values;
   }
 
  private:

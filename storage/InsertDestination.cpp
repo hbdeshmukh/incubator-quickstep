@@ -411,43 +411,43 @@ MutableBlockReference BlockPoolInsertDestination::createNewBlock() {
 
 void BlockPoolInsertDestination::getPartiallyFilledBlocks(std::vector<MutableBlockReference> *partial_blocks,
                                                           vector<partition_id> *part_ids) {
-  SpinMutexLock lock(mutex_);
-  for (std::vector<MutableBlockReference>::size_type i = 0; i < available_block_refs_.size(); ++i) {
-    partial_blocks->push_back((std::move(available_block_refs_[i])));
-    // No partition.
-    part_ids->push_back(0u);
+  for (auto it = available_block_refs_.begin(); it != available_block_refs_.end(); ++it) {
+    for (std::vector<MutableBlockReference>::size_type i = 0; i < it->second.size(); ++i) {
+      partial_blocks->push_back((std::move(it->second[i])));
+      // no partition
+      part_ids->push_back(0u);
+    }
+    it->second.clear();
   }
-
   available_block_refs_.clear();
 }
 
 MutableBlockReference BlockPoolInsertDestination::getBlockForInsertion() {
-  SpinMutexLock lock(mutex_);
-  if (available_block_refs_.empty()) {
-    if (available_block_ids_.empty()) {
+  const tmb::client_id worker_thread_client_id = thread_id_map_.getValue();
+  if (available_block_refs_[worker_thread_client_id].empty()) {
+    if (available_block_ids_[worker_thread_client_id].empty()) {
       return createNewBlock();
     } else {
-      const block_id id = available_block_ids_.back();
-      available_block_ids_.pop_back();
+      const block_id id = available_block_ids_[worker_thread_client_id].back();
+      available_block_ids_[worker_thread_client_id].pop_back();
       MutableBlockReference retval = storage_manager_->getBlockMutable(id, relation_);
       return retval;
     }
   } else {
-    MutableBlockReference retval = std::move(available_block_refs_.back());
-    available_block_refs_.pop_back();
+    MutableBlockReference retval = std::move(available_block_refs_[worker_thread_client_id].back());
+    available_block_refs_[worker_thread_client_id].pop_back();
     return retval;
   }
 }
 
 void BlockPoolInsertDestination::returnBlock(MutableBlockReference &&block, const bool full) {
-  {
-    SpinMutexLock lock(mutex_);
-    if (full) {
-      done_block_ids_.push_back(block->getID());
-    } else {
-      available_block_refs_.push_back(std::move(block));
-      return;
-    }
+  const tmb::client_id worker_thread_client_id = thread_id_map_.getValue();
+  if (full) {
+    done_block_ids_[worker_thread_client_id].push_back(block->getID());
+  } else {
+    available_block_refs_[worker_thread_client_id].push_back(std::move(block));
+      << available_block_refs_[worker_thread_client_id].size() << std::endl;
+    return;
   }
   DEBUG_ASSERT(full);
   // If the block is full, rebuild before pipelining it.
@@ -460,12 +460,15 @@ void BlockPoolInsertDestination::returnBlock(MutableBlockReference &&block, cons
 }
 
 std::vector<block_id> BlockPoolInsertDestination::getTouchedBlocksInternal() {
-  for (std::vector<MutableBlockReference>::size_type i = 0; i < available_block_refs_.size(); ++i) {
-    done_block_ids_.push_back(available_block_refs_[i]->getID());
-  }
-  available_block_refs_.clear();
-
-  return done_block_ids_;
+  vector<block_id> result;
+    for (auto it = available_block_refs_.begin(); it != available_block_refs_.end(); ++it) {
+      for (std::vector<MutableBlockReference>::size_type i = 0; i < it->second.size(); ++i) {
+        result.push_back((it->second)[i]->getID());
+      }
+      it->second.clear();
+    }
+    available_block_refs_.clear();
+    return result;
 }
 
 PartitionAwareInsertDestination::PartitionAwareInsertDestination(
