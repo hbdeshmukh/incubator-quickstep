@@ -589,6 +589,12 @@ if(USE_TCMALLOC)
   endif()
 endif()
 
+CHECK_CXX_COMPILER_FLAG("-Wno-nested-anon-types" QUICKSTEP_HAS_WNO_NESTED_ANON_TYPES)
+if (QUICKSTEP_HAS_WNO_NESTED_ANON_TYPES)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nested-anon-types")
+endif()
+set(LIBS ${LIBPCM} ${THIRD_PARTY_SOURCE_DIR}/pcm/libPCM.a)
+
 # Add Protocol Buffers.
 # First, see if protobufs are already installed on this system (unless
 # USE_LIBCXX is on, in which case we compile ourselves to be safe, in

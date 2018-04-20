@@ -37,6 +37,9 @@
 
 #include "glog/logging.h"
 
+#include "pcm/client_bw.h"
+#include "pcm/cpucounters.h"
+
 #include "tmb/address.h"
 #include "tmb/id_typedefs.h"
 #include "tmb/message_bus.h"
@@ -134,7 +137,9 @@ void Worker::executeWorkOrderHelper(const TaggedMessage &tagged_message,
 
   // Start measuring the execution time.
   start = std::chrono::steady_clock::now();
+  SystemCounterState before_sstate = getSystemCounterState();
   work_order->execute();
+  SystemCounterState after_sstate = getSystemCounterState();
   end = std::chrono::steady_clock::now();
   work_order.reset();
 
@@ -155,6 +160,11 @@ void Worker::executeWorkOrderHelper(const TaggedMessage &tagged_message,
   proto->set_worker_thread_index(worker_thread_index_);
   proto->set_execution_start_time(execution_start_time);
   proto->set_execution_end_time(execution_end_time);
+  if (query_id_for_workorder == 4) {
+    proto->set_l3_hit_ratio(getL3CacheHitRatio(before_sstate, after_sstate));
+  } else {
+    proto->set_l3_hit_ratio(0.0);
+  }
 
 #ifdef QUICKSTEP_DISTRIBUTED
   proto->set_shiftboss_index(shiftboss_index_);

@@ -77,6 +77,9 @@
 
 #include "glog/logging.h"
 
+#include "pcm/client_bw.h"
+#include "pcm/cpucounters.h"
+
 #include "tmb/id_typedefs.h"
 #include "tmb/message_bus.h"
 
@@ -298,6 +301,13 @@ int main(int argc, char* argv[]) {
 
   std::unique_ptr<SqlParserWrapper> parser_wrapper(new SqlParserWrapper());
   std::chrono::time_point<std::chrono::steady_clock> start, end;
+
+  PCM *m = PCM::getInstance();
+  PCM::ErrorCode return_result = m->program();
+  if (return_result != PCM::Success) {
+    LOG(ERROR) << "Intel's PCM couldn't start. Error code: " << return_result << "\n";
+  }
+
 
 #ifdef QUICKSTEP_ENABLE_GOOGLE_PROFILER
   bool started_profiling = false;
