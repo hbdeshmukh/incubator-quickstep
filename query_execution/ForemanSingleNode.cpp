@@ -233,11 +233,11 @@ void ForemanSingleNode::printWorkOrderProfilingResults(const std::size_t query_i
   // cli to infer the CPU core ID where a given worker is pinned.
   const std::vector<WorkOrderTimeEntry> &recorded_times =
       policy_enforcer_->getProfilingResults(query_id);
-  fputs("Query ID,Worker ID,NUMA Socket,Operator ID,Time (microseconds),Start,End,L3 Hit ratio\n", out);
+  fputs("Query ID,Worker ID,NUMA Socket,Operator ID,Time (microseconds),Start,End,L3 Hit ratio,MPKI\n", out);
   for (auto workorder_entry : recorded_times) {
     const std::size_t worker_id = workorder_entry.worker_id;
     fprintf(out,
-            "%lu,%lu,%d,%lu,%lu,%lu,%lu,%f\n",
+            "%lu,%lu,%d,%lu,%lu,%lu,%lu,%f,%f\n",
             query_id,
             worker_id,
             worker_directory_->getNUMANode(worker_id),
@@ -245,7 +245,8 @@ void ForemanSingleNode::printWorkOrderProfilingResults(const std::size_t query_i
             workorder_entry.end_time - workorder_entry.start_time,  // Time
             workorder_entry.start_time,
             workorder_entry.end_time,
-            workorder_entry.l3_hit_ratio);
+            workorder_entry.l3_hit_ratio,
+            workorder_entry.mpki);
   }
 }
 

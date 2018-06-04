@@ -129,6 +129,7 @@ struct WorkOrderTimeEntry {
   std::size_t start_time;  // Epoch time measured in microseconds
   std::size_t end_time;  // Epoch time measured in microseconds
   double l3_hit_ratio;
+  double mpki;
 };
 // Key = query ID.
 // Value = vector of work order profiling records.

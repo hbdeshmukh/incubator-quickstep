@@ -162,8 +162,11 @@ void Worker::executeWorkOrderHelper(const TaggedMessage &tagged_message,
   proto->set_execution_end_time(execution_end_time);
   if (query_id_for_workorder == 4) {
     proto->set_l3_hit_ratio(getL3CacheHitRatio(before_sstate, after_sstate));
+    proto->set_mpki(1000 * getInstructionsRetired(before_sstate, after_sstate)
+                        / (static_cast<double>(getL3CacheMisses(before_sstate, after_sstate))));
   } else {
     proto->set_l3_hit_ratio(0.0);
+    proto->set_mpki(0.0);
   }
 
 #ifdef QUICKSTEP_DISTRIBUTED

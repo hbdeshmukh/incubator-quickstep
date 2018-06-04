@@ -51,7 +51,8 @@ message WorkOrderCompletionMessage {
 
   // Required in the distributed version.
   optional uint64 shiftboss_index = 7;
-  optional double l3_hit_ratio = 9; 
+  optional double l3_hit_ratio = 9;
+  optional double mpki = 10;
 }
 
 message CatalogRelationNewBlockMessage {
