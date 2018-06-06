@@ -418,11 +418,11 @@ int main(int argc, char* argv[]) {
                    quickstep::DoubleToStringWithSignificantDigits(
                        time_ms.count(), 3).c_str());
           }
-          if (quickstep::FLAGS_profile_and_report_workorder_perf) {
+          if (quickstep::FLAGS_profile_and_report_workorder_perf && query_id == 4) {
             // TODO(harshad) - Allow user specified file instead of stdout.
             foreman.printWorkOrderProfilingResults(query_id, stdout);
           }
-          if (quickstep::FLAGS_visualize_execution_dag) {
+          if (quickstep::FLAGS_visualize_execution_dag && query_id == 4) {
             const auto *profiling_stats =
                 foreman.getWorkOrderProfilingResults(query_id);
             if (profiling_stats) {

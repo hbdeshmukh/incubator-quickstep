@@ -182,6 +182,7 @@ void PolicyEnforcerBase::recordTimeForWorkOrder(
   entry.start_time = proto.execution_start_time(),
   entry.end_time = proto.execution_end_time();
   entry.l3_hit_ratio = proto.l3_hit_ratio();
+  entry.mpki = proto.mpki();
 }
 
 }  // namespace quickstep
