@@ -73,6 +73,7 @@ void PolicyEnforcerBase::processMessage(const TaggedMessage &tagged_message) {
 
       op_index = proto.operator_index();
       admitted_queries_[query_id]->processWorkOrderCompleteMessage(op_index, proto.partition_id());
+      LOG_IF(INFO, query_id == 6) << "Memory: " << getCurrentMemoryUsageInBytes();
       break;
     }
     case kRebuildWorkOrderCompleteMessage: {

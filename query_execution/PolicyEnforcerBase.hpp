@@ -174,6 +174,8 @@ class PolicyEnforcerBase {
   void recordTimeForWorkOrder(
       const serialization::WorkOrderCompletionMessage &proto);
 
+  virtual std::size_t getCurrentMemoryUsageInBytes() { return 0; }
+
   CatalogDatabaseLite *catalog_database_;
 
   const bool profile_individual_workorders_;

@@ -33,6 +33,7 @@
 #include "query_execution/WorkerDirectory.hpp"
 #include "query_execution/WorkerMessage.hpp"
 #include "query_optimizer/QueryHandle.hpp"
+#include "storage/StorageManager.hpp"
 
 #include "gflags/gflags.h"
 #include "glog/logging.h"
@@ -86,6 +87,10 @@ void PolicyEnforcerSingleNode::getWorkerMessages(
   for (const std::size_t finished_qid : finished_queries_ids) {
     removeQuery(finished_qid);
   }
+}
+
+std::size_t PolicyEnforcerSingleNode::getCurrentMemoryUsageInBytes() {
+    return storage_manager_->getMemorySize();
 }
 
 bool PolicyEnforcerSingleNode::admitQuery(QueryHandle *query_handle) {
