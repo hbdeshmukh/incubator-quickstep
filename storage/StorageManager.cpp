@@ -816,13 +816,16 @@ MutableBlockReference StorageManager::getBlockInternal(
       ret = MutableBlockReference(static_cast<StorageBlock*>(it->second.block), eviction_policy_.get());
     }
   }
+  // Commented for eviction optimization.
   // To be safe, release the block's shard after 'eviction_lock' destructs.
-  lock_manager_.release(block);
+  // lock_manager_.release(block);
 
   if (ret.valid()) {
     return ret;
   }
 
+  // Added for eviction optimization.
+  makeRoomForBlockOrBlob(0);
   // Note that there is no way for the block to be evicted between the call to
   // loadBlock and the call to EvictionPolicy::blockReferenced from
   // MutableBlockReference's constructor; this is because EvictionPolicy
@@ -844,7 +847,7 @@ MutableBlockReference StorageManager::getBlockInternal(
     ret = MutableBlockReference(loadBlock(block, relation, numa_node), eviction_policy_.get());
   } while (false);
   // To be safe, release the block's shard after 'io_lock' destructs.
-  lock_manager_.release(block);
+  // lock_manager_.release(block);
 
   return ret;
 }
@@ -861,8 +864,9 @@ MutableBlobReference StorageManager::getBlobInternal(const block_id blob,
       ret = MutableBlobReference(static_cast<StorageBlob*>(it->second.block), eviction_policy_.get());
     }
   }
+  // Commented for eviction optimization.
   // To be safe, release the blob's shard after 'eviction_lock' destructs.
-  lock_manager_.release(blob);
+  // lock_manager_.release(blob);
 
   if (ret.valid()) {
     return ret;
@@ -887,8 +891,9 @@ MutableBlobReference StorageManager::getBlobInternal(const block_id blob,
     // No other thread loaded the blob before us.
     ret = MutableBlobReference(loadBlob(blob, numa_node), eviction_policy_.get());
   } while (false);
+  // Commented for eviction optimization.
   // To be safe, release the blob's shard after 'io_lock' destructs.
-  lock_manager_.release(blob);
+  // lock_manager_.release(blob);
 
   return ret;
 }
@@ -904,7 +909,9 @@ void StorageManager::makeRoomForBlockOrBlob(const size_t slots) {
       break;
     }
 
-    bool has_collision = false;
+    SpinSharedMutexExclusiveLock<false> eviction_lock(*lock_manager_.get(block_to_evict));
+    // Commented for eviction optimization.
+    /*bool has_collision = false;
     SpinSharedMutexExclusiveLock<false> eviction_lock(*lock_manager_.get(block_to_evict, &has_collision));
     if (has_collision) {
       // We have a collision in the shared lock manager, where some callers
@@ -915,40 +922,43 @@ void StorageManager::makeRoomForBlockOrBlob(const size_t slots) {
       // For now simply treat this situation as the case where there is not
       // enough memory and we temporarily go over the memory limit.
       break;
-    }
+    }*/
 
     {
       SpinSharedMutexSharedLock<false> read_lock(blocks_shared_mutex_);
       if (blocks_.find(block_to_evict) == blocks_.end()) {
         // another thread must have jumped in and evicted it before us
 
+    // Commented for eviction optimization.
         // NOTE(zuyu): It is ok to release the shard for a block or blob,
         // before 'eviction_lock' destructs, because we will never encounter a
         // self-deadlock in a single thread, and in multiple-thread case some
         // thread will block but not deadlock if there is a shard collision.
-        lock_manager_.release(block_to_evict);
+        // lock_manager_.release(block_to_evict);
         continue;
       }
     }
     if (eviction_policy_->getRefCount(block_to_evict) > 0) {
       // Someone sneaked in and referenced the block before we could evict it.
 
+      // Commented for eviction optimization.
       // NOTE(zuyu): It is ok to release the shard for a block or blob, before
       // before 'eviction_lock' destructs, because we will never encounter a
       // self-deadlock in a single thread, and in multiple-thread case some
       // thread will block but not deadlock if there is a shard collision.
-      lock_manager_.release(block_to_evict);
+      // lock_manager_.release(block_to_evict);
       continue;
     }
     if (saveBlockOrBlob(block_to_evict)) {
       evictBlockOrBlob(block_to_evict);
     }  // else : Someone sneaked in and evicted the block before we could.
 
+    // Commented for eviction optimization.
     // NOTE(zuyu): It is ok to release the shard for a block or blob, before
     // before 'eviction_lock' destructs, because we will never encounter a
     // self-deadlock in a single thread, and in multiple-thread case some
     // thread will block but not deadlock if there is a shard collision.
-    lock_manager_.release(block_to_evict);
+    // lock_manager_.release(block_to_evict);
   }
 }
 

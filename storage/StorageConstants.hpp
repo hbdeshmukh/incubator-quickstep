@@ -47,7 +47,7 @@ constexpr char kCatalogFilename[] = "catalog.pb.bin";
 //
 // TODO(chasseur): Possibly change this for non-x86 architectures with
 // different large page sizes.
-const std::size_t kSlotSizeBytes = 0x200000;
+const std::size_t kSlotSizeBytes = 0x20000;
 
 // A GigaByte.
 const std::uint64_t kAGigaByte = (1 << 30);
