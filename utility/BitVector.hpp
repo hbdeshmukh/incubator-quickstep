@@ -20,6 +20,7 @@
 #ifndef QUICKSTEP_UTILITY_BIT_VECTOR_HPP_
 #define QUICKSTEP_UTILITY_BIT_VECTOR_HPP_
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -971,7 +972,7 @@ class BitVector {
                   range_elements * sizeof(std::size_t));
 
       // Set any remaining bits in the first part of the last element.
-      data_array_[start_element + range_elements]
+      data_array_[std::min(start_element + range_elements, data_array_size_ - 1)]
           |= MaskBitRange<std::size_t>(0, range_num_bits & kLowerOrderMask);
     } else {
       // Same as above, but set bits to zero.
@@ -991,7 +992,7 @@ class BitVector {
                   0x0,
                   range_elements * sizeof(std::size_t));
 
-      data_array_[start_element + range_elements]
+      data_array_[std::min(start_element + range_elements, data_array_size_ - 1)]
           &= ~MaskBitRange<std::size_t>(0, range_num_bits & kLowerOrderMask);
     }
   }
